@@ -1,5 +1,8 @@
 ################################################# Data flow ####################################
 
+export @system
+export dispatch_data, listen_to
+
 #=
     Let's start by making a simple thing. a flow is a channel, in which we put and take data
     Since taking and putting is kind of costly, we will batch them, meaning we send a bunch of data
