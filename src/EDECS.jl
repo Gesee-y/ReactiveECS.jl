@@ -1,6 +1,10 @@
 ################################################## Entity component system ################################################
 
-#= We need the entity =#
+module EDECS
+
+export AbstractEntity, AbstractComponent, AbstractSystem
+export add_entity!, remove_entity!, attach_component!, detach_component!
+export subscribe!, run!, run_system!, get_component
 
 """
     abstract type AbstractEntity
@@ -111,6 +115,8 @@ function subscribe!(ecs::ECSManager{T},system::AbstractSystem, archetype::Tuple)
 
 	return nothing
 end
+
+run!(::AbstractSystem, batch) = batch
 
 function run_system!(system::AbstractSystem)
 
