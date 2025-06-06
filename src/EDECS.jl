@@ -149,3 +149,5 @@ function _remove_entity_in_groups(ecs::ECSManager, entity::AbstractEntity)
 		end
 	end
 end
+
+end # Module
