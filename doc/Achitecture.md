@@ -75,8 +75,8 @@ struct PhysicComponent <: AbstractComponent
 end
 
 # Component naming helpers
-get_name(::TransformComponent) = :Transform
-get_name(::PhysicComponent)    = :Physic
+EDECS.get_name(::TransformComponent) = :Transform
+EDECS.get_name(::PhysicComponent)    = :Physic
 
 # Declare systems using macros
 @system(PhysicSystem, Entity)
