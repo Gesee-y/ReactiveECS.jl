@@ -4,58 +4,58 @@
 
 ### Introduction
 
-Game engine development is often seen as a domain reserved for technical elites. Yet, at the heart of every efficient engine lies a fundamental pillar: **software architecture**.
+Game engine development is often seen as a domain reserved for technical elites. Yet, at the core of every performant engine lies a fundamental element: **software architecture**.
 
-A poor architecture inevitably leads to technical debt. A good one, on the other hand, ensures **longevity**, **modularity**, and **maintainability**. Among prevailing models, the **Entity-Component-System (ECS)** paradigm has become standard—but it’s not without limitations.
+Poor architecture inevitably leads to technical debt. A good one, on the other hand, ensures **longevity**, **modularity**, and **maintainability**. Among the dominant models, the **Entity-Component-System (ECS)** paradigm stands out. However, it is not without limitations.
 
-In this article, I propose a hybrid variant: the **Event-Driven ECS (EDECS)**. This architecture retains the core principles of ECS while introducing a **reactive**, system-demand-driven model that streamlines communication and improves entity processing.
+In this article, I propose a hybrid variant: the **Event-Driven ECS (EDECS)**. This architecture retains the core principles of ECS while introducing a **reactive** model, based on system requirements, to streamline communication and improve entity processing.
 
-> ⚠️ Note: This is *not* an event bus or pub/sub system. The term “Event-Driven” here refers to a **structured, conditional dispatching model**, based on system subscriptions to component sets.
+> ⚠️ Not to be confused with an Event Bus or pub/sub system: here, the term "Event-Driven" refers to a **conditional and structured dispatch**, based on system subscriptions to component combinations.
 
 ---
 
 ### What is ECS?
 
-The **Entity-Component-System (ECS)** architecture represents game objects as **entities**, uniquely identified and structurally passive—they carry no behavior or logic.
+The **Entity-Component-System (ECS)** is an architecture where game objects are represented by **entities**, uniquely identified. These entities are **structural only**: they have no behavior or logic.
 
-Game logic is handled by **systems**, which operate on **components** attached to these entities. Each system processes only those entities that have a specific set of components.
+Game logic is handled by **systems**, which operate on **components** attached to entities. Each system processes only the entities possessing a specific set of components.
 
-Modern ECS architectures often use **archetypes**: groups of entities that share the same component layout, allowing for batched and optimized processing.
+Modern ECS frameworks often rely on the notion of **archetypes**: groupings of entities sharing the same component combination, allowing for optimized batch processing.
 
 ---
 
 ### Bitset Representation
 
-A common approach is to represent archetypes using bitsets. This allows fast compatibility checks via bitwise logic:
+A classical approach involves representing archetypes using bitsets. This allows for fast checks using bitwise operations:
 
 ```julia
-archetype = 0b0011  # Entity has components 1 and 2
+archetype = 0b0011  # The entity has components 1 and 2
 physic    = 0b0010  # The "Physic" system requires only component 2
 
 if (archetype & physic == physic)
-    # Entity is compatible with the Physic system
+    # The entity is compatible with the Physic system
 end
 ```
 
-This method is performant, but not very scalable (due to binary limits and complex management). An alternative is **dynamic queries**, though they incur a higher runtime cost.
+This method is performant but less scalable at large scale (binary limits, complex management). One can also use **dynamic queries**, but their cost is non-negligible.
 
 ---
 
 ## What is an Event-Driven ECS?
 
-The **Event-Driven ECS (EDECS)** relies on a centralized architecture where an **`ECSManager`** groups entities by archetype.
+The **Event-Driven ECS (EDECS)** relies on a centralized architecture, where a **main manager (`ECSManager`)** groups entities by archetype.
 
-Systems **subscribe** to the archetypes they care about. At each tick, the manager **dispatches** the corresponding entities to each system.
+Systems **subscribe** to the archetypes they're interested in. At each tick, the manager **dispatches** the matching entities to each system.
 
-This model is based on three principles:
+This model is based on three pillars:
 
-* Structured storage of entities
-* Targeted data distribution
-* Reactive, data-oriented processing
+* Structured entity storage,
+* Targeted data distribution,
+* Reactive, data-oriented processing.
 
 ---
 
-### Julia Example
+### Example in Julia
 
 ```julia
 using EDECS
@@ -74,16 +74,16 @@ struct PhysicComponent <: AbstractComponent
     velocity::Float32
 end
 
-# Component naming helpers
+# Naming helper for components
 EDECS.get_name(::TransformComponent) = :Transform
 EDECS.get_name(::PhysicComponent)    = :Physic
 
-# Declare systems using macros
+# System declarations via macro
 @system(PhysicSystem, Entity)
 @system(PrintSystem, Entity)
 @system(RenderSystem, Entity)
 
-# Implement system behavior
+# System behavior implementations
 function run!(::PhysicSystem, entities)
     for entity in entities
         t = entity.components[:Transform]
@@ -105,27 +105,27 @@ function run!(::RenderSystem, entities)
     end
 end
 
-# Initialize ECS manager
+# ECS manager initialization
 ecs = ECSManager{Entity}()
 
 # Create two entities
-e1 = Entity(1, Dict(:Health => Health(100), :Transform => TransformComponent(1.0, 2.0)))
-e2 = Entity(2, Dict(:Health => Health(50), :Transform => TransformComponent(-5.0, 0.0), :Physic => PhysicComponent(1.0)))
+e1 = Entity(1; Health = Health(100), Transform = TransformComponent(1.0,2.0))
+e2 = Entity(2; Health = Health(50), Transform = TransformComponent(-5.0,0.0), Physic = PhysicComponent(1.0))
 
 add_entity!(ecs, e1)
 add_entity!(ecs, e2)
 
-# Initialize systems
+# System instances
 print_sys   = PrintSystem()
 physic_sys  = PhysicSystem()
 render_sys  = RenderSystem()
 
-# Subscribe systems to archetypes
+# Subscribe to archetypes
 subscribe!(ecs, print_sys,   (:Health, :Transform))
 subscribe!(ecs, physic_sys,  (:Transform, :Physic))
 subscribe!(ecs, render_sys,  (:Transform,))
 
-# Launch systems asynchronously
+# Launch systems (asynchronous task)
 run_system!(print_sys)
 run_system!(physic_sys)
 run_system!(render_sys)
@@ -140,11 +140,29 @@ end
 
 ---
 
+## Overview
+
+```
+          ┌───────────────┐
+          │ ECSManager    │ # When dispatch_data is called, the ECSManager will distribute the reference
+          │ (Archetypes)  │ # To the correct group of entities to the correct systems
+          └─────┬─────────┘
+                │
+        ┌───────┼──────────────┐
+        │       │              │
+┌──────▼───┐ ┌──▼────────┐ ┌───▼─────────┐
+│ Physic   │ │ Print     │ │ Render      │ # These subsystems are just waiting for data, nothing else
+│ System   │ │ System    │ │ System      │
+└──────────┘ └───────────┘ └─────────────┘
+```
+
+---
+
 ## EDECS Benchmark
 
-This benchmark measures the performance of **dispatching only**, as it's the core logic, independent of game-specific code.
+Here, we measure only the performance of **dispatch**, as it's the core function, independent of business logic.
 
-**Test Configuration:**
+**Test configuration:**
 
 * **CPU**: Intel Pentium T4400 @ 2.2 GHz
 * **RAM**: 2 GB DDR3
@@ -156,36 +174,37 @@ This benchmark measures the performance of **dispatching only**, as it's the cor
 
 * 3 components (Health, Transform, Physic)
 * 3 active systems
-* Varying chunk sizes
+* Varying number of entities
 
-| Entity Count | 64 obj/chunk         | 128 obj/chunk       | 256 obj/chunk       | 512 obj/chunk       |
-| ------------ | -------------------- | ------------------- | ------------------- | ------------------- |
-| 128          | 0.031 ms (18 alloc)  | 0.032 ms (12 alloc) | 0.037 ms (6 alloc)  | 0.040 ms (6 alloc)  |
-| 256          | 0.057 ms (30 alloc)  | 0.056 ms (18 alloc) | 0.040 ms (12 alloc) | 0.032 ms (6 alloc)  |
-| 512          | 0.069 ms (54 alloc)  | 0.054 ms (30 alloc) | 0.053 ms (18 alloc) | 0.052 ms (12 alloc) |
-| 1024         | 0.094 ms (102 alloc) | 0.059 ms (54 alloc) | 0.068 ms (30 alloc) | 0.046 ms (18 alloc) |
+| Number of Entities | Performance        |
+| ------------------ | ------------------ |
+| 128                | 0.002 ms (6 alloc) |
+| 256                | 0.002 ms (6 alloc) |
+| 512                | 0.002 ms (6 alloc) |
+| 1024               | 0.002 ms (6 alloc) |
 
 > ✅ **Analysis**:
->
-> * Chunks that are too small increase allocations and degrade performance.
-> * Larger chunks reduce dispatch cost but are harder to parallelize.
-> * **Best trade-off**: 128–256 entities per chunk.
-> * **Tip**: use **pooling** and dynamically adapt chunk size to hardware.
+> The number of entities does not affect performance. This is because dispatch is only dependent on the number of subscriptions and systems. The function has complexity O(n × m), where *n* is the number of archetypes and *m* is the number of systems.
+> The number of allocations is constant because the manager pre-classifies the entities and, during dispatch, distributes only **references** to the system-specific arrays of matching entities.
 
 ---
 
-## Benefits of an Event-Driven ECS
+## Advantages of an Event-Driven ECS
 
-* **Consistent performance**: only one dispatch per tick, no repeated queries.
-* **Parallelism-friendly**: chunks can be processed across threads.
-* **Dynamic extensibility**: systems can be hot-swapped at runtime.
-* **Network-ready**: a server can act as the central ECSManager distributing entities to clients.
-* **Improved memory locality**: archetype grouping enables cache-friendly access.
+* **Stable performance**: one dispatch per tick, no redundant queries.
+* **Custom parallelism**: each system chooses how to parallelize its own logic.
+* **Dynamic extensibility**: systems can be added or removed at runtime.
+* **Native network compatibility**: a server can act as a central manager, distributing entities to clients.
+* **Improved memory locality**: grouping by archetype promotes cache-friendly access.
 
 ---
 
 ## Conclusion
 
-EDECS addresses the classic limitations of ECS by offering better **scalability**, a **reactive architecture**, and better support for **parallel or distributed processing**.
+EDECS overcomes classical ECS limitations by offering **better scalability**, a **reactive architecture**, and improved readiness for **parallel or distributed processing**.
 
-This model was implemented for experimental game engine in Julia which may be released soon. It merges ECS simplicity with the reactivity of targeted dispatching—without compromising on performance.
+This model has been implemented in my experimental engine in Julia. It combines ECS simplicity with targeted dispatch reactivity, without sacrificing performance.
+
+For technical questions, feel free to reach out.
+
+---
