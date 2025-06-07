@@ -2,10 +2,6 @@
 
 module EDECS
 
-export AbstractEntity, AbstractComponent, AbstractSystem
-export add_entity!, remove_entity!, attach_component!, detach_component!
-export subscribe!, run!, run_system!, get_component
-
 """
     abstract type AbstractEntity
 
@@ -29,7 +25,10 @@ abstract type AbstractSystem end
 
 mutable struct Entity <: AbstractEntity
 	const id::UInt
-	components::Dict{Symbol, AbstractComponent}
+	components::NamedTuple
+
+	## Constructors
+	Entity(id::Integer;kwargs...) = new(id, NamedTuple(kwargs))
 end
 
 # TODO : Search better data structures to keep data ain the ECS manager, it may improve performances
@@ -37,13 +36,12 @@ mutable struct ECSManager{T}
 	entities::Dict{UInt, T}
 	groups::Dict{Tuple, Vector{T}} # We prefer a vector to a dict, it's easier to parallelise
 	systems::Dict{Tuple, Vector{AbstractSystem}}
-	chunk_count::Int # Used for partitioning
-
+	
 	ECSManager{T}() where T <: AbstractEntity = new{T}(
 		Dict{UInt,T}(), 
 		Dict{Tuple, Vector{UInt}}(),
-		Dict{Tuple, Vector{AbstractSystem}}(),
-		1)
+		Dict{Tuple, Vector{AbstractSystem}}()
+		)
 end
 
 
@@ -75,8 +73,9 @@ end
 
 function attach_component!(ecs::ECSManager{T}, entity::T, component::AbstractComponent) where T <: AbstractEntity
 	
-	# First of all, we add the component to the entity
-    entity.components[get_name(component)] = component
+	# First of all, we replace the old component to put a new one containint the new component
+	name=get_name(component)
+    entity.components = NamedTuple{(keys(entity.components...,name))}((values(entity.components)..., component))
 
     # If the entity is already registered in the ECS manager
 	if haskey(ecs.entities,entity.id)
@@ -92,7 +91,8 @@ end
 
 function detach_component!(ecs::ECSManager{T}, entity::T, component::AbstractComponent) where T <: AbstractEntity
 	name = get_name(component)
-	delete!(entity.components,name)
+	entity.components = _delete_tuple(entity.components, name)
+
 	if entity.id in ecs.entities
 		_remove_entity_in_groups(ecs, entity)
 	end
@@ -101,6 +101,8 @@ end
 ############################################## Systems ##################################################
 
 function subscribe!(ecs::ECSManager{T},system::AbstractSystem, archetype::Tuple) where T
+	
+	# If the is not system with a subscription to the given archetype
 	if !haskey(ecs.groups, archetype)
 		ecs.systems[archetype] = AbstractSystem[system]
 		ecs.groups[archetype] = UInt[]
@@ -115,8 +117,6 @@ function subscribe!(ecs::ECSManager{T},system::AbstractSystem, archetype::Tuple)
 
 	return nothing
 end
-
-run!(::AbstractSystem, batch) = batch
 
 function run_system!(system::AbstractSystem)
 
@@ -150,4 +150,8 @@ function _remove_entity_in_groups(ecs::ECSManager, entity::AbstractEntity)
 	end
 end
 
+function _delete_tuple(t::NamedTuple, c::Symbol)
+	f = findfirst(x -> x==c, keys(t))
+	return NamedTuple{(keys(t[begin:f-1])...,keys(t[f+1:end])...)}((values(t[begin:f-1])..., values(t[f+1:end])))
+end
 end # Module
