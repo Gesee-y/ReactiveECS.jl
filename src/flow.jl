@@ -6,8 +6,6 @@
     instead of individual data.
 =#
 
-const CHUNK_SIZE = 5*10^5
-
 struct DataFlow{T}
 	input::Channel{WeakRef}
 	output::Channel{WeakRef}
@@ -33,7 +31,7 @@ macro system(expr, type)
 	end
 end
 
-function dispatch_data(ecs, chunk_size=CHUNK_SIZE)
+function dispatch_data(ecs)
 	for archetype in keys(ecs.systems)
 		data = ecs.groups[archetype]
 		systems = ecs.systems[archetype]
