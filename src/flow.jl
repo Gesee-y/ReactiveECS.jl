@@ -1,22 +1,19 @@
 ################################################# Data flow ####################################
 
-export @system
-export dispatch_data, listen_to
-
 #=
     Let's start by making a simple thing. a flow is a channel, in which we put and take data
     Since taking and putting is kind of costly, we will batch them, meaning we send a bunch of data
     instead of individual data.
 =#
 
-const CHUNK_SIZE = 512
+const CHUNK_SIZE = 5*10^5
 
 struct DataFlow{T}
-	input::Channel{Vector{T}}
-	output::Channel{Vector{T}}
+	input::Channel{WeakRef}
+	output::Channel{WeakRef}
 
     ## Constructors
-	DataFlow{T}() where T = new{T}(Channel{Vector{T}}(Inf), Channel{Vector{T}}(Inf))
+	DataFlow{T}() where T = new{T}(Channel{WeakRef}(Inf), Channel{WeakRef}(Inf))
 end
 
 #=
@@ -37,26 +34,14 @@ macro system(expr, type)
 end
 
 function dispatch_data(ecs, chunk_size=CHUNK_SIZE)
-	skipped = 0
-	while skipped < length(ecs.systems)
-		skipped = 0
-		for archetype in keys(ecs.systems)
-			c = ecs.chunk_count
-			s = 1 + chunk_size * (c-1)
-			e = chunk_size * c
-			data = ecs.groups[archetype]
-			L = length(data)
-			s > L && (skipped += 1; continue)
-			e > L && (e = L)
+	for archetype in keys(ecs.systems)
+		data = ecs.groups[archetype]
+		systems = ecs.systems[archetype]
 
-			systems = ecs.systems[archetype]
-			for system in systems
-			    put!(system.flow.input, data[s:e])
-			end
+		for system in systems
+		    put!(system.flow.input, WeakRef(data))
 		end
-	    ecs.chunk_count += 1
-    end
-	ecs.chunk_count = 1
+	end
 end
 
 function listen_to(source::AbstractSystem, listener::AbstractSystem)
