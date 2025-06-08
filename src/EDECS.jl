@@ -2,10 +2,6 @@
 
 module EDECS
 
-################################################## Entity component system ################################################
-
-#= We need the entity =#
-
 """
     abstract type AbstractEntity
 
@@ -41,7 +37,6 @@ mutable struct Entity <: AbstractEntity
 	end
 end
 
-# TODO : Search better data structures to keep data ain the ECS manager, it may improve performances
 mutable struct ECSManager{T}
 	entities::Dict{UInt, T}
 	groups::Dict{UInt128, Vector{WeakRef}} # We prefer a vector to a dict, it's easier to parallelise
