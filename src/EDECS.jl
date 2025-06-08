@@ -88,7 +88,7 @@ function attach_component!(ecs::ECSManager{T}, entity::T, component::AbstractCom
 
 		for archetype in keys(ecs.groups)
 			if _match_archetype(entity,archetype) && !(entity.id in ecs.groups[archetype])
-				push!(ecs.groups[archetype], WeakRef(entit)y)
+				push!(ecs.groups[archetype], WeakRef(entity))
 			end
 		end
 		
