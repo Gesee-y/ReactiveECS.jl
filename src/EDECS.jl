@@ -81,7 +81,7 @@ function attach_component!(ecs::ECSManager{T}, entity::T, component::AbstractCom
 	
 	# First of all, we replace the old component to put a new one containint the new component
 	name=get_name(component)
-    entity.components = NamedTuple{(keys(entity.components...,name))}((values(entity.components)..., component))
+    entity.components = NamedTuple{(keys(entity.components)...,name)}((values(entity.components)..., component))
 
     # If the entity is already registered in the ECS manager
 	if haskey(ecs.entities,entity.id)
@@ -137,7 +137,7 @@ function subscribe!(ecs::ECSManager{T},system::AbstractSystem, components::Tuple
 	archetype = get_bits(components)
 	if !haskey(ecs.groups, archetype)
 		ecs.systems[archetype] = AbstractSystem[system]
-		ecs.groups[archetype] = UInt[]
+		ecs.groups[archetype] = WeakRef[]
 		for entity in values(ecs.entities)
 			if _match_archetype(entity, archetype)
 				push!(ecs.groups[archetype], WeakRef(entity))
