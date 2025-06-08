@@ -136,7 +136,7 @@ render_sys  = RenderSystem()
 # Subscribe to archetypes
 subscribe!(ecs, print_sys,   (:Health, :Transform))
 subscribe!(ecs, physic_sys,  (:Transform, :Physic))
-listen_to(physic_sys, render_sys) # This function makes the rendering system wait for data coming form the physic system
+listen_to(physic_sys, render_sys) # This function tells physic system that he should dispatch the results of his process to his listeners
 
 # Launch systems (asynchronous task)
 run_system!(print_sys)
@@ -166,7 +166,10 @@ end
 ┌──────▼───┐ ┌──▼────────┐ ┌───▼─────────┐
 │ Physic   │ │ Print     │ │ Render      │ # These subsystems are just waiting for data, nothing else
 │ System   │ │ System    │ │ System      │
-└──────────┘ └───────────┘ └─────────────┘
+└────▼─────┘ └───────────┘ └─────────────┘
+     |                           |
+     |    sending the result     |
+     |---------------------------|
 ```
 
 ---
@@ -198,13 +201,13 @@ We use the package BenchmarkTools.jl to realize these measures.
 | 1024               | 962 ns (2 alloc) |
 
 > ✅ **Analysis**:
-> The number of entities does not affect performance. This is because dispatch is only dependent on the number of subscriptions and systems. The function has complexity O(n × m), where *n* is the number of archetypes and *m* is the number of systems.
+> The dispatch complexity is O(k), where k is the number of active subscriptions. Each system only receives references to the archetypes it subscribed to. This ensures a constant and bounded per-tick cost.
 > The number of allocations is constant because the manager pre-classifies the entities and, during dispatch, distributes only **references** to the system-specific arrays of matching entities.
 
 Next we benchmark utilities functions
 
 - **Adding entity** : 296 ns (2 alloc)
-- **Removin entity** : 80.668 ns (0 alloc)
+- **Removing entity** : 80.668 ns (0 alloc)
 
 > **Analysis**
 > Adding an entity just run through all the existing archetypes and add the entity to re matching group, making this function O(n) where n is the number of archetype
