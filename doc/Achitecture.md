@@ -45,7 +45,7 @@ This method is performant but less scalable at large scale (binary limits, compl
 
 The **Event-Driven ECS (EDECS)** relies on a centralized architecture, where a **main manager (`ECSManager`)** groups entities by archetype.
 
-Systems **subscribe** to the archetypes they're interested in. At each tick, the manager **dispatches** the matching entities to each system.
+Systems **subscribe** to the archetypes (in our implementation, it's internally represented by a bitset, speeding up matching) they're interested in. At each tick, the manager **dispatches** the matching entities to each system.
 
 This model is based on three pillars:
 
