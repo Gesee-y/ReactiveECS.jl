@@ -62,7 +62,7 @@ using EDECS
 
 # Component definitions
 struct Health <: AbstractComponent
-	hp::Int
+    hp::Int
 end
 EDECS.get_bits(::Type{Health})::UInt128 = 0b1
 
@@ -88,33 +88,33 @@ EDECS.get_name(::PhysicComponent)    = :Physic
 
 # System behavior implementations
 function run!(::PhysicSystem, ref::WeakRef)
-	entities = ref.value
-	for i in eachindex(entities)
-		entity = validate(ref, i)
-	    t = entity.components[:Transform]
-	    v = entity.components[:Physic]
-	    t.x += v.velocity
+    entities = ref.value # Getting the array of entities for the Weak reference
+    for i in eachindex(entities)
+        entity = validate(ref, i) # We check that the entity is valid
+        t = entity.components[:Transform]
+        v = entity.components[:Physic]
+        t.x += v.velocity
     end
 
     return ref
 end
 
 function run!(sys::PrintSystem, ref::WeakRef)
-	entities = ref.value
-	for i in eachindex(entities)
-		entity = validate(ref, i)
-		id = entity.id
-		println("Entity: $id")
-	end
+    entities = ref.value
+    for i in eachindex(entities)
+        entity = validate(ref, i)
+	id = entity.id
+	println("Entity: $id")
+    end
 end
 
 function run!(::RenderSystem, ref)
     entities = ref.value
     for i in eachindex(entities)
-		entity = validate(ref, i)
-	    t = entity.components[:Transform]
-	    println("Rendering entity $(entity.id) at position ($(t.x), $(t.y))")
-	end
+	entity = validate(ref, i)
+        t = entity.components[:Transform]
+        println("Rendering entity $(entity.id) at position ($(t.x), $(t.y))")
+    end
 end
 
 
@@ -136,7 +136,7 @@ render_sys  = RenderSystem()
 # Subscribe to archetypes
 subscribe!(ecs, print_sys,   (:Health, :Transform))
 subscribe!(ecs, physic_sys,  (:Transform, :Physic))
-listen_to(physic_sys, render_sys)
+listen_to(physic_sys, render_sys) # This function makes the rendering system wait for data coming form the physic system
 
 # Launch systems (asynchronous task)
 run_system!(print_sys)
@@ -173,8 +173,6 @@ end
 
 ## EDECS Benchmark
 
-Here, we measure only the performance of **dispatch**, as it's the core function, independent of business logic.
-
 **Test configuration:**
 
 * **CPU**: Intel Pentium T4400 @ 2.2 GHz
@@ -182,6 +180,9 @@ Here, we measure only the performance of **dispatch**, as it's the core function
 * **OS**: Windows 10
 * **Julia**: v1.10.3
 * **Active threads**: 2
+* 
+Here, we first measure the performance of **dispatch**, as it's the core function.
+We use the package BenchmarkTools.jl to realize these measures.
 
 **Scenario:**
 
@@ -189,16 +190,25 @@ Here, we measure only the performance of **dispatch**, as it's the core function
 * 3 active systems
 * Varying number of entities
 
-| Number of Entities | Performance        |
-| ------------------ | ------------------ |
-| 128                | 0.002 ms (6 alloc) |
-| 256                | 0.002 ms (6 alloc) |
-| 512                | 0.002 ms (6 alloc) |
-| 1024               | 0.002 ms (6 alloc) |
+| Number of Entities | Performance      |
+| ------------------ | -----------------|
+| 128                | 962 ns (2 alloc) |
+| 256                | 962 ns (2 alloc) |
+| 512                | 962 ns (2 alloc) |
+| 1024               | 962 ns (2 alloc) |
 
 > ✅ **Analysis**:
 > The number of entities does not affect performance. This is because dispatch is only dependent on the number of subscriptions and systems. The function has complexity O(n × m), where *n* is the number of archetypes and *m* is the number of systems.
 > The number of allocations is constant because the manager pre-classifies the entities and, during dispatch, distributes only **references** to the system-specific arrays of matching entities.
+
+Next we benchmark utilities functions
+
+- **Adding entity** : 296 ns (2 alloc)
+- **Removin entity** : 80.668 ns (0 alloc)
+
+> **Analysis**
+> Adding an entity just run through all the existing archetypes and add the entity to re matching group, making this function O(n) where n is the number of archetype
+> Removing an entity is extremely fast because it just delete the object from the manager, which will invalidate all the references to it. The validate function is there to clean up dead references and return a valid entity
 
 ---
 
