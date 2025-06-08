@@ -2,7 +2,7 @@
 
 ---
 
-### Introduction
+## Introduction
 
 Game engine development is often seen as a domain reserved for technical elites. Yet, at the core of every performant engine lies a fundamental element: **software architecture**.
 
@@ -14,7 +14,7 @@ In this article, I propose a hybrid variant: the **Event-Driven ECS (EDECS)**. T
 
 ---
 
-### What is ECS?
+## What is ECS?
 
 The **Entity-Component-System (ECS)** is an architecture where game objects are represented by **entities**, uniquely identified. These entities are **structural only**: they have no behavior or logic.
 
@@ -154,7 +154,7 @@ end
 
 ---
 
-## Overview
+### Overview
 
 ```
           ┌───────────────┐
