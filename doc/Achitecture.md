@@ -62,17 +62,20 @@ using EDECS
 
 # Component definitions
 struct Health <: AbstractComponent
-    hp::Int
+	hp::Int
 end
+EDECS.get_bits(::Type{Health})::UInt128 = 0b1
 
 mutable struct TransformComponent <: AbstractComponent
     x::Float32
     y::Float32
 end
+EDECS.get_bits(::Type{TransformComponent})::UInt128 = 0b10
 
 struct PhysicComponent <: AbstractComponent
     velocity::Float32
 end
+EDECS.get_bits(::Type{PhysicComponent})::UInt128 = 0b100
 
 # Naming helper for components
 EDECS.get_name(::TransformComponent) = :Transform
@@ -84,26 +87,36 @@ EDECS.get_name(::PhysicComponent)    = :Physic
 @system(RenderSystem, Entity)
 
 # System behavior implementations
-function run!(::PhysicSystem, entities)
-    for entity in entities
-        t = entity.components[:Transform]
-        v = entity.components[:Physic]
-        t.x += v.velocity
+function run!(::PhysicSystem, ref::WeakRef)
+	entities = ref.value
+	for i in eachindex(entities)
+		entity = validate(ref, i)
+	    t = entity.components[:Transform]
+	    v = entity.components[:Physic]
+	    t.x += v.velocity
     end
+
+    return ref
 end
 
-function run!(::PrintSystem, entities)
-    for entity in entities
-        println("Entity: $(entity.id)")
-    end
+function run!(sys::PrintSystem, ref::WeakRef)
+	entities = ref.value
+	for i in eachindex(entities)
+		entity = validate(ref, i)
+		id = entity.id
+		println("Entity: $id")
+	end
 end
 
-function run!(::RenderSystem, entities)
-    for entity in entities
-        t = entity.components[:Transform]
-        println("Rendering entity $(entity.id) at position ($(t.x), $(t.y))")
-    end
+function run!(::RenderSystem, ref)
+    entities = ref.value
+    for i in eachindex(entities)
+		entity = validate(ref, i)
+	    t = entity.components[:Transform]
+	    println("Rendering entity $(entity.id) at position ($(t.x), $(t.y))")
+	end
 end
+
 
 # ECS manager initialization
 ecs = ECSManager{Entity}()
@@ -123,7 +136,7 @@ render_sys  = RenderSystem()
 # Subscribe to archetypes
 subscribe!(ecs, print_sys,   (:Health, :Transform))
 subscribe!(ecs, physic_sys,  (:Transform, :Physic))
-subscribe!(ecs, render_sys,  (:Transform,))
+listen_to(physic_sys, render_sys)
 
 # Launch systems (asynchronous task)
 run_system!(print_sys)
