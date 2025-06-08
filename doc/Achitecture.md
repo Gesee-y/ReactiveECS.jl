@@ -193,12 +193,18 @@ We use the package BenchmarkTools.jl to realize these measures.
 * 3 active systems
 * Varying number of entities
 
-| Number of Entities | Performance      |
-| ------------------ | -----------------|
-| 128                | 962 ns (2 alloc) |
-| 256                | 962 ns (2 alloc) |
-| 512                | 962 ns (2 alloc) |
-| 1024               | 962 ns (2 alloc) |
+| Number of Entities | Performance        |
+| ------------------ | -------------------|
+| 128                | 962 ns (2 alloc)   |
+| 256                | 962 ns (2 alloc)   |
+| 512                | 962 ns (2 alloc)   |
+| 1024               | 962 ns (2 alloc)   |
+| 10k                | 996 ns (2 alloc)   |
+| 100k               | 1.003 μs (2 alloc) |
+| 1M                 | 987 ns (2 alloc)   |
+| 10M                | 1.003 μs (2 alloc) |
+| 100M               | 999 ns (2 alloc)   |
+| 1B                 | 963 ns (2 alloc)   |
 
 > ✅ **Analysis**:
 > The dispatch complexity is O(k), where k is the number of active subscriptions. Each system only receives references to the archetypes it subscribed to. This ensures a constant and bounded per-tick cost.
