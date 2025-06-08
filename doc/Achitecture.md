@@ -91,8 +91,8 @@ function run!(::PhysicSystem, ref::WeakRef)
     entities = ref.value # Getting the array of entities for the Weak reference
     for i in eachindex(entities)
         entity = validate(ref, i) # We check that the entity is valid
-        t = entity.components[:Transform]
-        v = entity.components[:Physic]
+        t = get_component(entity, TransformComponent)
+        v = get_component(entity, PhysicComponent)
         t.x += v.velocity
     end
 
@@ -112,7 +112,7 @@ function run!(::RenderSystem, ref)
     entities = ref.value
     for i in eachindex(entities)
 	entity = validate(ref, i)
-        t = entity.components[:Transform]
+        t = get_component(entity, TransformComponent)
         println("Rendering entity $(entity.id) at position ($(t.x), $(t.y))")
     end
 end
@@ -150,6 +150,7 @@ for i in 1:3
     yield()
 end
 ```
+> **Note** : the function `listen_to` just add the system as a listener, the 2 system doesn't need each other. the listener (the last argument of the function) just wait passively for data (that may be coming from anyone) and the source just pass the results of his `run!` function to every system listening to him.
 
 ---
 
