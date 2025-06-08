@@ -6,31 +6,38 @@
     instead of individual data.
 =#
 
-struct DataFlow{T}
-	input::Channel{WeakRef}
-	output::Channel{WeakRef}
+mutable struct DataFlow{T}
+	input::Channel{T}
+	output::Channel{T}
 
     ## Constructors
-	DataFlow{T}() where T = new{T}(Channel{WeakRef}(Inf), Channel{WeakRef}(Inf))
+	DataFlow{T}() where T = new{T}(Channel{T}(Inf), Channel{T}(Inf))
 end
 
-#=
-    Next, each system should have a data flow, but we need custom systems so we will have a macro
-=#
+"""
+    @system(name, type)
 
-macro system(expr, type)
+This macro create a new system and the given name and will process data of type `type`
+"""
+macro system(name, type)
 	return quote
-		mutable struct $expr <: AbstractSystem
+		mutable struct $name <: AbstractSystem
 			active::Bool
-			flow::DataFlow{$type}
+			flow::DataFlow{WeakRef}
+			children::Vector{AbstractSystem}
 
 			## Constructors
 
-			$expr() = new(true,DataFlow{$type}())
+			$name() = new(true,DataFlow{WeakRef}(),AbstractSystem[])
 		end
 	end
 end
 
+"""
+    dispatch_data(ecs)
+
+This function will distribute data to the systems given the archetype they have subscribed for.
+"""
 function dispatch_data(ecs)
 	for archetype in keys(ecs.systems)
 		data = ecs.groups[archetype]
@@ -42,19 +49,35 @@ function dispatch_data(ecs)
 	end
 end
 
+"""
+    listen_to(source::AbstractSystem, listener::AbstractSystem)
+
+This function make the system `listener` wait for data coming from the system `source`
+"""
 function listen_to(source::AbstractSystem, listener::AbstractSystem)
 
 	## We will skip error checking on purpose
 	# We are just fetching data so there should be not problem
 	# We will just async this to ensure that we are still on the main thread
-    listener.input = source.output
+    push!(get_children(source), listener)
 end
 
-function listen_to(ecs::ECSManager, archetype::NTuple{N,Symbol}, listener::AbstractSystem) where N
+"""
+    listen_to(ecs::ECSManager, archetype::NTuple{N,Symbol}, listener::AbstractSystem, num=1) where N
+
+This function will make the system `listener` wait for data coming the `num` systems who have request the components `archetype`
+"""
+function listen_to(ecs::ECSManager, archetype::Tuple, listener::AbstractSystem, num=1)
 	if haskey(ecs.systems, archetype)
 		source = ecs.systems[archetype]
-		listen_to(source, listener)
+
+		(num == -1) && (num = length(source))
+		for i = 1:num
+		    listen_to(source[i], listener)
+		end
 	else
 		@warn "There is no system matching the archetype $archetype yet."
 	end
 end
+
+get_children(system::AbstractSystem) = getfield(system, :children)
