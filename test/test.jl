@@ -1,84 +1,91 @@
-include("..\\src\\EDECS.jl")
+using EDECS
 
+# Component definitions
 struct Health <: AbstractComponent
-	hp::Int
+    hp::Int
 end
+EDECS.get_bits(::Type{Health})::UInt128 = 0b1
 
 mutable struct TransformComponent <: AbstractComponent
     x::Float32
     y::Float32
 end
+EDECS.get_bits(::Type{TransformComponent})::UInt128 = 0b10
 
 struct PhysicComponent <: AbstractComponent
     velocity::Float32
 end
+EDECS.get_bits(::Type{PhysicComponent})::UInt128 = 0b100
 
-get_name(::TransformComponent) = :Transform
-get_name(::PhysicComponent) = :Physic
+# Naming helper for components
+EDECS.get_name(::TransformComponent) = :Transform
+EDECS.get_name(::PhysicComponent)    = :Physic
 
+# System declarations via macro
 @system(PhysicSystem, Entity)
 @system(PrintSystem, Entity)
 @system(RenderSystem, Entity)
 
-function run!(::PhysicSystem, entities)
-	for entity in entities
-	    t = entity.components[:Transform]
-	    v = entity.components[:Physic]
-	    t.x += v.velocity
+# System behavior implementations
+function run!(::PhysicSystem, ref::WeakRef)
+    entities = ref.value # Getting the array of entities for the Weak reference
+    for i in eachindex(entities)
+        entity = validate(ref, i) # We check that the entity is valid
+        t = get_component(entity, TransformComponent)
+        v = get_component(entity, PhysicComponent)
+        t.x += v.velocity
+    end
+
+    return ref
+end
+
+function run!(sys::PrintSystem, ref::WeakRef)
+    entities = ref.value
+    for i in eachindex(entities)
+        entity = validate(ref, i)
+	id = entity.id
+	println("Entity: $id")
     end
 end
 
-function run!(sys::PrintSystem, entities)
-	for entity in entities
-		id = entity.id
-		println("Entity: $id")
-	end
+function run!(::RenderSystem, ref)
+    entities = ref.value
+    for i in eachindex(entities)
+	entity = validate(ref, i)
+        t = get_component(entity, TransformComponent)
+        println("Rendering entity $(entity.id) at position ($(t.x), $(t.y))")
+    end
 end
 
-function run!(::RenderSystem, entities)
-    for entity in entities
-	    t = entity.components[:Transform]
-	    println("Rendering entity $(entity.id) at position ($(t.x), $(t.y))")
-	end
-end
 
+# ECS manager initialization
 ecs = ECSManager{Entity}()
-e = Entity(1, Dict(:Health => Health(100), :Transform => TransformComponent(1.0,2.0)))
-e2 = Entity(2, Dict(:Health => Health(50), :Transform => TransformComponent(-5.0,0.0), :Physic => PhysicComponent(1.0)))
 
-add_entity!(ecs, e)
+# Create two entities
+e1 = Entity(1; Health = Health(100), Transform = TransformComponent(1.0,2.0))
+e2 = Entity(2; Health = Health(50), Transform = TransformComponent(-5.0,0.0), Physic = PhysicComponent(1.0))
+
+add_entity!(ecs, e1)
 add_entity!(ecs, e2)
 
-for i in 1:1024
-	add_entity!(ecs,Entity(i+2, Dict(:Health => Health(50), :Transform => TransformComponent(-5.0+i,0.0), :Physic => PhysicComponent(1.0))))
-end
+# System instances
+print_sys   = PrintSystem()
+physic_sys  = PhysicSystem()
+render_sys  = RenderSystem()
 
-print_sys = PrintSystem()
-physic_sys = PhysicSystem()
-render_sys = RenderSystem()
+# Subscribe to archetypes
+subscribe!(ecs, print_sys,   (:Health, :Transform))
+subscribe!(ecs, physic_sys,  (:Transform, :Physic))
+listen_to(physic_sys, render_sys) # This function tells physic system that he should dispatch the results of his process to his listeners
 
-subscribe!(ecs, print_sys, (:Health, :Transform))
-subscribe!(ecs, physic_sys, (:Transform, :Physic))
-subscribe!(ecs, render_sys, (:Transform,))
-
+# Launch systems (asynchronous task)
 run_system!(print_sys)
 run_system!(physic_sys)
 run_system!(render_sys)
 
+# Simulate 3 frames
 for i in 1:3
-	println("FRAME $i")
-	@time dispatch_data(ecs)
-	yield()
+    println("FRAME $i")
+    dispatch_data(ecs)
+    yield()
 end
-sleep(2)
-
-#=
-    ajouter un systeme : 0.000147 seconds (26 allocations: 1.875 KiB)
-    creer un ecs manager : 0.000035 seconds (17 allocations: 2.062 KiB)
-    creer une entite : 0.000039 seconds (17 allocations: 1.656 KiB)
-    ajouter une entite : 0.000036 seconds (9 allocations: 400 bytes)
-    creer une instance de systeme :0.000025 seconds (15 allocations: 672 bytes) (fait une seule fois)
-    souscrire a un archetype : 0.079826 seconds (13.04 k allocations: 961.953 KiB, 99.90% compilation time)( fait une seule fois)
-    lancer un systeme : 0.016844 seconds (3.53 k allocations: 253.867 KiB, 99.61% compilation time) (fait une seule fois)
-    dispatcher les evenement : 0.000031 seconds (6 allocations: 288 bytes) (fait a chaque frame pour update)
-=#
