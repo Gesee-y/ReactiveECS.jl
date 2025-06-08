@@ -1,4 +1,4 @@
-## 📄 **An Event-Driven Architecture for ECS: Reconciling Performance and Modularity**
+# An Event-Driven Architecture for ECS: Reconciling Performance and Modularity
 
 ---
 
