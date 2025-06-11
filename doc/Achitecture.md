@@ -60,6 +60,8 @@ This model is based on three pillars:
 ```julia
 using EDECS
 
+const DELTA_TIME = 0.016
+
 ## Defining components
 struct Health <: AbstractComponent
     hp::Int
@@ -86,36 +88,33 @@ EDECS.get_name(::Type{PhysicComponent}) = :Physic
 @system PhysicSystem
 @system RenderSystem
 
-# The `ref` argument refer to a tuple with the following data `(WeakRef(dict_of_component_data), WeakRef(vector_of_component_idx))`
-function EDECS.run!(::PhysicSystem, ref)
-    ref1, ref2 = ref
-    data = ref1.value # We get the dict of component data
-    entities::aSoA = ref2.value # We get the set of index corresponding to this system
-    pos::Vector{Int} = entities.data.Transform
-    vel::Vector{Int} = entities.data.Physic
+function EDECS.run!(::PhysicSystem, tuple_data)
+    component_data, entity_indices = tuple_data
+
+    transforms = component_data[:Transform][2]  # Actual transform data
+    physics = component_data[:Physics][2]       # Actual physics data
     
-    # Leveraging `StructArray.jl`
-    # This will return a contiguous vector of data
-    x_pos::Vector{Float32} = data[:Transform][2].x # the `2` Refers to the actual data, the index `1` contain the corresponding entities
-    velo::Vector{Float32} = data[:Physic][2].velocity
-
-    # Then we use the the corresponding index
-    # `pos` and `vel` always have the same length so you can do this without problem
-    # You can vectorize the loop if you are sure that your data are contiguous
-    # meaning your entities data follow themselves and you can use just a range or a `eachindex` to get them 
-    for i in eachindex(pos)
-        x_pos[pos[i]] += velo[vel[i]]
+    transform_indices = entity_indices.data.Transform
+    physics_indices = entity_indices.data.Physics
+    
+    # Apply physics to transforms
+    for i in eachindex(transform_indices)
+        transform_idx = transform_indices[i]
+        physics_idx = physics_indices[i]
+        
+        transforms.x[transform_idx] += physics.velocity[physics_idx] * DELTA_TIME
     end
-
-    return ref # This will be passed to all the systems listening to this one (a system can even listen to himself)
 end
 
-function EDECS.run!(::RenderSystem, ref)
-    data = ref[1].value
-    pos = data[:Transform][2]
-    for i in eachindex(pos)
-        t = pos[i]
-        println("Rendering entity at position ($(t.x), $(t.y))")
+function EDECS.run!(::RenderSystem, tuple_data)
+    component_data, entity_indices = tuple_data
+
+    transforms = component_data[:Transform][2]
+    transform_indices = entity_indices.data.Transform
+
+    for i in eachindex(transform_indices)
+        transform = transforms[i]
+        println("Rendering entity at position ($(transform.x), $(transform.y))")
     end
 end
 
@@ -150,6 +149,35 @@ end
 ```
 
 > **Note** : the function `listen_to` just add the system as a listener, the 2 system doesn't need each other. the listener (the last argument of the function) just wait passively for data (that may be coming from anyone) and the source just pass the results of his `run!` function to every system listening to him.
+
+---
+
+### Technical Overview
+
+#### Dispatching Logic
+
+The `ECSManager` acts as the central coordinator. It holds all components using a **Struct of Arrays (SoA)** layout for cache-friendly access patterns. When `dispatch_data` is called, the manager sends each subscribed system a **tuple of `WeakRef`s** to simplify memory handling and avoid unnecessary allocations.
+
+* The **first element** is a `WeakRef` to a dictionary mapping component names (as defined by `get_name`) to their SoA data.
+* The **second element** is a `WeakRef` to an `aSoA` (an associative Struct of Arrays), which maps each component name to a vector of indices. These indices reference the actual data within the SoA for entities that match the system's subscription.
+
+This design avoids the need for optional components — systems technically have access to all registered components — but only the relevant subset is prefiltered and passed to them for iteration.
+
+#### Subscription Logic
+
+When a system subscribes to a set of components, the manager builds a dedicated index set containing only the entities that match this component combination. If another system has already subscribed to the same combination, the manager simply adds the new system to the existing subscription group.
+
+The `subscribe!` function has a time complexity of **`O(n)`**, where `n` is the number of existing entities. Although it can be called at any time, **it is recommended to perform subscriptions during the engine's loading phase** to avoid runtime overhead.
+
+#### System Execution
+
+Calling `run_system!` starts the system in a blocking task, which suspends execution until the `ECSManager` dispatches the required data. Once unblocked, the system's `run!` function is invoked with its input data. Upon completion, the result is automatically forwarded to all systems registered as listeners via `listen_to`.
+
+To prevent runtime issues, **cyclic dependencies between systems are detected recursively** during `listen_to` registration, and a warning is emitted if a cycle is found.
+
+Then, the system listening to another one will be executed in their registration order.
+
+If a system encounters an error during execution, it will raise an exception. Logging support for crashes will be added in the future. A crashed system can be restarted by simply calling `run_system!` again.
 
 ---
 
@@ -193,7 +221,17 @@ end
 | 512                | \~552 ns (2 alloc) |
 | 1024               | \~565 ns (2 alloc) |
 | 10k                | \~569 ns (2 alloc) |
-| 100k               | \~575 μs (2 alloc) |
+| 100k               | \~575 ns (2 alloc) |
+
+| Number of Systems  | Performance           |
+| ------------------ | --------------------- |
+| 2                  |  ~580 ns (2 alloc)    |
+| 5                  |  ~1.9 μs (20 alloc)   |
+| 10                 |  ~3.7 μs (40 alloc)   |
+| 20                 |  ~7.3 μs (80 alloc)   |
+| 50                 |  ~17.7 μs (200 alloc) |
+| 100                |  ~34.9 μs (400 alloc) |
+| 200                |  ~73.7 μs (800 alloc) |
 
 > **Complexity**: `O(k)`, where `k` is the number of system subscriptions.
 
