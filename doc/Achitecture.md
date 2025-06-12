@@ -1,4 +1,4 @@
-# An Reactive Architecture for ECS: Reconciling Performance and Modularity
+# A Reactive Architecture for ECS: Reconciling Performance and Modularity
 
 ---
 
