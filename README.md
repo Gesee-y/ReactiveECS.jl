@@ -1,8 +1,8 @@
-# Event-Driven ECS in Julia
+# Reactive ECS in Julia
 
 A high-performance, modular, event-driven ECS (Entity-Component-System) architecture written in Julia. Designed for game engines, simulations, or any data-oriented architecture requiring reactive system dispatching and efficient memory layout.
 
-> Not a Pub/Sub system. This ECS is "event-driven" in the sense that systems subscribe to *archetypes* and only receive entities that match their component needs.
+> The term 'Reactive' refers to the fact that systems react to the presence of data to run their process
 
 ---
 
@@ -21,7 +21,7 @@ A high-performance, modular, event-driven ECS (Entity-Component-System) architec
 ## Installation
 
 ```julia
-julia> ] add https://github.com/Gesee-y/EDECS.jl
+julia> ] add https://github.com/Gesee-y/RECS.jl
 ````
 
 > Replace the URL with the actual GitHub repo link when available.
