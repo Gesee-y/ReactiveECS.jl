@@ -1,4 +1,4 @@
-# An Event-Driven Architecture for ECS: Reconciling Performance and Modularity
+# An Reactive Architecture for ECS: Reconciling Performance and Modularity
 
 ---
 
@@ -8,9 +8,7 @@ Game engine development is often seen as a domain reserved for technical elites.
 
 Poor architecture inevitably leads to technical debt. A good one, on the other hand, ensures **longevity**, **modularity**, and **maintainability**. Among the dominant models, the **Entity-Component-System (ECS)** paradigm stands out. However, it is not without limitations.
 
-In this article, I propose a hybrid variant: the **Event-Driven ECS (EDECS)**. This architecture retains the core principles of ECS while introducing a **reactive** model, based on system requirements, to streamline communication and improve entity processing.
-
-> ⚠️ Not to be confused with an Event Bus or pub/sub system: here, the term "Event-Driven" refers to a **conditional and structured dispatch**, based on system subscriptions to component combinations.
+In this article, I propose a hybrid variant: the **Reactive ECS (RECS)**. This architecture retains the core principles of ECS while introducing a **reactive** model, based on system requirements, to streamline communication and improve entity processing.
 
 ---
 
@@ -41,9 +39,9 @@ This method is performant but less scalable at large scale (binary limits, compl
 
 ---
 
-## What is an Event-Driven ECS?
+## What is a Reactive ECS?
 
-The **Event-Driven ECS (EDECS)** relies on a centralized architecture, where a **main manager (`ECSManager`)** groups entities by archetype.
+The **Reactive ECS (RECS)** relies on a centralized architecture, where a **main manager (`ECSManager`)** groups entities by archetype.
 
 Systems **subscribe** to the archetypes (in our implementation, it's internally represented by a bitset, speeding up matching) they're interested in. At each tick, the manager **dispatches** the matching entities to each system.
 
@@ -58,7 +56,7 @@ This model is based on three pillars:
 ### Example in Julia
 
 ```julia
-using EDECS
+using RECS
 
 const DELTA_TIME = 0.016
 
@@ -67,28 +65,28 @@ struct Health <: AbstractComponent
     hp::Int
 end
 
-EDECS.get_bits(::Type{Health})::UInt128 = 0b1
+RECS.get_bits(::Type{Health})::UInt128 = 0b1
 
 mutable struct TransformComponent <: AbstractComponent
     x::Float32
     y::Float32
 end
 Base.getindex(t::TransformComponent, i::Int) = i == 1 ? getfield(t, :x) : getfield(t, :y)
-EDECS.get_bits(::Type{TransformComponent})::UInt128 = 0b10
+RECS.get_bits(::Type{TransformComponent})::UInt128 = 0b10
 
 mutable struct PhysicComponent <: AbstractComponent
     velocity::Float32
 end
 Base.getindex(p::PhysicComponent, i::Int) = getfield(p, :velocity)
-EDECS.get_bits(::Type{PhysicComponent})::UInt128 = 0b100
+RECS.get_bits(::Type{PhysicComponent})::UInt128 = 0b100
 
-EDECS.get_name(::Type{TransformComponent}) = :Transform
-EDECS.get_name(::Type{PhysicComponent}) = :Physic
+RECS.get_name(::Type{TransformComponent}) = :Transform
+RECS.get_name(::Type{PhysicComponent}) = :Physic
 
 @system PhysicSystem
 @system RenderSystem
 
-function EDECS.run!(::PhysicSystem, tuple_data)
+function RECS.run!(::PhysicSystem, tuple_data)
     component_data, entity_indices = tuple_data
 
     transforms = component_data[:Transform][2]  # Actual transform data
@@ -106,7 +104,7 @@ function EDECS.run!(::PhysicSystem, tuple_data)
     end
 end
 
-function EDECS.run!(::RenderSystem, tuple_data)
+function RECS.run!(::RenderSystem, tuple_data)
     component_data, entity_indices = tuple_data
 
     transforms = component_data[:Transform][2]
