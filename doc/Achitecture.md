@@ -251,22 +251,11 @@ On a benchmarked 400k entities under dual-system translation (e.g., Physic + Ren
 
 ## Comparative Table
 
-| Feature                   | EDECS                   | Bevy ECS         | Flecs           | EnTT           |
-| ------------------------- | ----------------------- | ---------------- | --------------- | -------------- |
-| Dispatch Strategy         | Event-driven            | Schedule-driven  | Staged queries  | Manual/sparse  |
-| Entity Iteration          | By subscription         | By schedule      | By system query | By view        |
-| Memory layout             | SoA (via StructArray)   | SoA              | SoA             | AoS/SoA hybrid |
-| Dynamic system add/remove | Yes                     | Partial          | Yes             | Yes            |
-| Reactive communication    | Yes (via `listen_to`)   | No               | No              | No             |
-| Parallel execution        | User-controlled         | Scheduler-driven | Yes             | Manual         |
-| Query caching             | Yes (bitset match)      | Yes              | Yes             | Yes            |
-| Multi-threading model     | User-defined            | Built-in         | Built-in        | Manual         |
-| Network-ready             | Yes (manager as server) | No               | Partial         | No             |
-| Language                  | Julia                   | Rust             | C/C++           | C++            |
+> This section will be added soon.
 
 ---
 
-## Advantages of EDECS
+## Advantages of RECS
 
 * **Stable performance**: one dispatch per tick, no redundant queries.
 * **Custom optimisation**: each system chooses how to parallelize or vectorize its own logic.
@@ -279,7 +268,7 @@ On a benchmarked 400k entities under dual-system translation (e.g., Physic + Ren
 
 ## Conclusion
 
-EDECS overcomes classical ECS limitations by offering **better scalability**, **good stability**, **a reactive architecture**, and improved readiness for **parallel or distributed processing**.
+RECS overcomes classical ECS limitations by offering **better scalability**, **good stability**, **a reactive architecture**, and improved readiness for **parallel or distributed processing**.
 
 This model has been implemented for my experimental game engine in Julia. It combines ECS simplicity with targeted dispatch reactivity, without sacrificing performance.
 
