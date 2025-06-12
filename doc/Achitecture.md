@@ -173,7 +173,7 @@ Calling `run_system!` starts the system in a blocking task, which suspends execu
 
 To prevent runtime issues, **cyclic dependencies between systems are detected recursively** during `listen_to` registration, and a warning is emitted if a cycle is found.
 
-Then, the system listening to another one will be executed in their registration order.
+Then, the system listening to another one will be executed as asynchronous task so there is no clear execution order but instead, you can chain the execution by making him listen to the system you want it to execute after.
 
 If a system encounters an error during execution, it will raise an exception. Logging support for crashes will be added in the future. A crashed system can be restarted by simply calling `run_system!` again.
 
