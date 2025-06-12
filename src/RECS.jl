@@ -1,6 +1,6 @@
 ##################################################### MSECS #################################################
 
-module EDECS
+module RECS
 
 using OrderedCollections
 using StructArrays
