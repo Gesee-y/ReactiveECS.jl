@@ -1,6 +1,7 @@
 module RECS
 
 using StructArrays
+using OrderedCollections
 
 const BitType = UInt128
 
