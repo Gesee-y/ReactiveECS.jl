@@ -3,7 +3,7 @@
 ##################################################################################################################
 
 export @component
-export create_component, get_name
+export create_component, get_name, get_bits
 
 const BIT_INDEX = Ref(0)
 const MAX_COMPONENT_NUM = 512
@@ -84,14 +84,7 @@ function get_bits(::Type{BitVector}, t::Union{Tuple, NamedTuple})
 
 	return v
 end
-get_bits(::Type{<:Unsigned}, t::Union{Tuple, NamedTuple}) = begin
-	res::UInt128 = 0
-	for elt in t
-		res += get_bits(elt)
-	end
-
-	return res
-end
+get_bits(::Type{<:Unsigned}, t::Union{Tuple, NamedTuple}) = sum(get_bits.(t))
 get_bits(n::Integer) = UInt128(n)
 
 
