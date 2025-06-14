@@ -2,7 +2,7 @@
 #################################################   OPERATIONS   #################################################
 ##################################################################################################################
 
-export create_entity!, remove_entity!
+export create_entity!, remove_entity!, queue_add!, request_entity
 export attach_component!, detach_component!
 
 """
@@ -11,19 +11,93 @@ export attach_component!, detach_component!
 This function create a new entity with the given components.
 `components` keys should match the `get_name` of the component.
 """
-function create_entity!(ecs::ECSManager; kwargs...)
-	components = NamedTuple(kwargs)
-	value = values(components)
-	signature = get_bits(value)
-	entity_components = NamedTuple{keys(components)}(typeof.(value))
-	id = get_free_indice(ecs)
+function create_entity!(ecs::ECSManager, components::NamedTuple)
 
-	entity = Entity(id, ecs, entity_components)
+	# Creating relevant variable
+	value = values(components)
+	signature = get_bits(value) # The entity's signature
+	entity_components = typeof.(value) # tuple of components types
+	id = get_free_indice(ecs) # The entity's id is fetched in the available id of the manager
+
+    entity = Entity(id, ecs, entity_components)
 	
 	push!(ecs, entity, components)
 	_add_to_archetype(ecs.archetypes, entity, signature)
-
+    
 	return entity
+end
+function create_entity!(ecs::ECSManager, signature::Tuple, archetype=0)
+
+	id = get_free_indice(ecs) # The entity's id is fetched in the available id of the manager
+    entity = Entity(id, ecs, signature)
+    w = ecs.world_data
+    push!(ecs.entities, entity)
+    resize!(w, length(w)+1)
+	
+	_add_to_archetype(ecs.archetypes, entity, archetype)
+    
+	return entity
+end
+create_entity!(ecs::ECSManager; kwargs...) = create_entity!(ecs, NamedTuple(kwargs))
+
+Base.@propagate_inbounds function request_entity(ecs::ECSManager, num::Int, signature::Tuple)
+    GC.@preserve entities = ecs.entities
+    GC.@preserve world = ecs.world_data
+    st = length(entities)
+    en = st + num
+    arch = get_bits(signature)
+
+    matched = Vector{BitType}()
+    archetypes = ecs.archetypes
+    sizehint!(matched, length(archetypes))
+    resize!(entities, en)
+    resize!(world, en)
+    
+    for archetype in keys(archetypes)
+    	if match_archetype(arch, archetype)
+    		push!(matched, archetype)
+    	end
+    end
+
+    for i in st:en
+        entity = Entity(i, ecs, signature)
+        for archetype in matched
+        	entity.positions[archetype] = length(get_data(archetypes[archetype]))+i
+        end
+    	entities[i] = entity
+    end
+
+    for archetype in matched
+		arch_data = get_data(archetypes[archetype])
+		append!(arch_data, st:en)
+    end
+
+    return @view entities[st:en]
+end
+
+"""
+    queue_add!(ecs::ECSManager, components::NamedTuple)
+
+Use this function to add entity to a queue, to be added later (more precisely at dispatch time)
+"""
+function queue_add!(ecs::ECSManager, components::NamedTuple)
+	value = values(components)
+	id = get_free_indice(ecs) # The entity's id is fetched in the available id of the manager
+
+    entity = Entity(id, ecs, typeof.(value))
+    add_to_addqueue(ecs, entity, components)
+end
+queue_add!(ecs::ECSManager; kwargs...) = queue_add!(ecs, NamedTuple(kwargs))
+
+function add_queued(ecs::ECSManager)
+	merged = append!(ecs, ecs.queue.add_queue_in, ecs.queue.add_queue_out, ecs.queue.data)
+    for entity in merged
+    	signature = get_bits(entity.components)
+    	_add_to_archetype(entity.archetypes, entity, signature)
+    end
+
+    empty!(ecs.queue.add_queue)
+    empty!(ecs.queue.data)
 end
 
 """
@@ -34,6 +108,22 @@ This function remove the entity from the `ecs` or the world
 function remove_entity!(ecs::ECSManager, entity::Entity)
 	add_to_free_indices(ecs, entity.id)
 	_remove_from_archetype(ecs.archetypes, entity)
+end
+
+"""
+    queue_deletion!(ecs::ECSManager, entity::Entity)
+
+Use this function to put entity to a queue, to be deleted later (more precisely at dispatch time)
+"""
+queue_deletion(ecs::ECSManager, entity::Entity) = add_to_delqueue(ecs, entity)
+
+function delete_queued(ecs::ECSManager)
+	queue = ecs.queue.deletion_queue
+	for i in eachindex(queue)
+		remove_entity!(ecs, queue[i])
+	end
+
+	empty!(queue)
 end
 
 """
@@ -86,7 +176,7 @@ end
 Use this function to remove a component from an existing entity.
 Make sure the entity has already been added to the world.
 """
-function detach_component!(entity::Entity; component)
+Base.@propagate_inbounds function detach_component!(entity::Entity; component)
 	name = get_name(component)
 	T = typeof(components)
 
@@ -97,9 +187,8 @@ function detach_component!(entity::Entity; component)
 	i = findfirst(keys(entity.components), name)
 
 	# We make the new component list
-	ky = (keys(entity.components)[begin:i-1]..., keys(entity.components)[i+1:end]...)
-	vl = (values(entity.components)[begin:i-1]..., values(entity.components)[i+1:end]...)
-	entity.components = NamedTuple{ky}(vl)
+	vl = (entity.components[begin:i-1]..., entity.components[i+1:end]...)
+	entity.components = vl
 
 	signature = get_bits(vl) # And the store the new signature of the entity
 	ecs = entity.world.value # We get the ECSManager
@@ -129,22 +218,27 @@ end
 
 ##################################################### Helpers #####################################################
 
-function _add_to_archetype(data::Dict{BitType, ArchetypeData}, entity::Entity, signature::BitType)
+Base.@propagate_inbounds function _add_to_archetype(data::Dict{BitType, ArchetypeData}, entity::Entity, signature::BitType)
 	for archetype in keys(data)
 		
 		# Checking the signature
 		if match_archetype(signature, archetype)
-			arch_data = get_data(data[archetype])
+			arch_data::Vector{Int} = get_data(data[archetype])
 			push!(arch_data, get_id(entity)) # We add entity index in the archetype group
 			entity.positions[archetype] = length(arch_data) # We set the entity's position in the archetype
 		end
 	end
 end
 
-function _remove_from_archetype(data::Dict{BitType, ArchetypeData}, entity::Entity)
+Base.@propagate_inbounds function _remove_from_archetype(data::Dict{BitType, ArchetypeData}, entity::Entity)
 	for archetype in keys(entity.positions)
-		arch_data = get_data(data[archetype])
-		tmp = pop!(arch_data) # We get the last index
-		arch_data[entity.positions[archetype]] = tmp	
+		pos = entity.positions[archetype]
+		arch_data::Vector{Int} = get_data(data[archetype])
+		if pos > 0 && !isempty(arch_data)
+			tmp::Int = pop!(arch_data) # We get the last index
+			(!isempty(arch_data) && pos <= length(arch_data)) && (arch_data[pos] = tmp)
+		else
+			delete!(entity.positions, archetype)
+		end
 	end
 end
