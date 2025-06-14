@@ -27,15 +27,26 @@ struct ArchetypeData
 	systems::Vector{AbstractSystem}
 end
 
+struct Queue
+	add_queue::Vector{Entity}
+	deletion_queue::Vector{Entity}
+	data::Dict{Symbol,Vector{AbstractComponent}}
+
+	## Constructors
+
+	Queue() = new(Entity[], Entity[], Dict{Symbol,Vector{AbstractComponent}}())
+end
+
 mutable struct ECSManager
 	entities::Vector{Optional{Entity}}
 	world_data::WorldData # Contain all the data
 	archetypes::Dict{BitType, ArchetypeData}
 	free_indices::Vector{Int}
+	queue::Queue
 
 	## Constructor
 
-	ECSManager() = new(Vector{Optional{Entity}}(), WorldData(), Dict{BitVector, ArchetypeData}(), Int[])
+	ECSManager() = new(Vector{Optional{Entity}}(), WorldData(), Dict{BitVector, ArchetypeData}(), Int[], Queue())
 end
 
 ################################################### Functions ###################################################
@@ -59,35 +70,77 @@ function dispatch_data(ecs::ECSManager)
 end
 
 function Base.resize!(world_data::WorldData, n::Int)
-	for key in keys(world_data.data)
-		resize!(world_data.data[key], n)
+	for data in values(world_data.data)
+		resize!(data, n)
 	end
 
 	world_data.L = n
 end
 
-Base.length(w::WorldData) = getfield(w, :L)
-function Base.push!(ecs::ECSManager, entity, data)
+@inline Base.length(w::WorldData)::Int = getfield(w, :L)
+Base.@propagate_inbounds function Base.push!(ecs::ECSManager, entity::Entity, data)
+	
 	w = ecs.world_data
 	L = length(w)
 	idx = get_id(entity)
 
-	idx > L ? (resize!(w, length(w)+1); push!(ecs.entities, entity)) : (ecs.entities[idx] = entity)
-
+    # If the index exceed the length of the data, we resize all the components
+	if idx > L
+		resize!(w, L+1)
+		push!(ecs.entities, entity)
+		L += 1
+	else
+		ecs.entities[idx] = entity
+	end
+    
 	for key in keys(data)
 		elt = data[key]
+
+		# If the component is already in our global data
 		if haskey(w.data, key)
 		    w.data[key][idx] = data[key]
+		# else we create a new SoA for that component and we resize it to match the other components
 		else
-			L = length(w)
-			w.data[key] = StructArray{typeof(elt)}(undef, length(w))
+			w.data[key] = StructArray{typeof(elt)}(undef, L)
 			w.data[key][idx] = elt
         end
 	end
 end
 
-get_free_indices(ecs::ECSManager) = getfield(ecs,:free_indices)
-function get_free_indice(ecs::ECSManager)
+Base.@propagate_inbounds function Base.append!(ecs::ECSManager, entities::Vector{Entity}, data::Dict)
+
+	w = ecs.world_data
+	L = length(w)
+	add = length(entities)
+
+    # If the index exceed the length of the data, we resize all the components
+	if add > 0
+		for key in keys(data)
+			elt = data[key]
+
+			# If the component is already in our global data
+			if haskey(w.data, key)
+			    append!(w.data[key], elt)
+			# else we create a new SoA for that component and we resize it to match the other components
+			else
+				w.data[key] = StructArray{typeof(elt[1])}(undef, 0)
+				append!(w.data[key], elt)
+	        end
+		end
+		resize!(w, L+add)
+		append!(ecs.entities, entities)
+		L += add
+	end
+	
+    return entities
+end
+
+@inline get_free_indices(ecs::ECSManager)::Vector{Int} = getfield(ecs,:free_indices)
+get_only_free_indice(ecs::ECSManager)::Int = begin
+	indices = get_free_indices(ecs)
+	return isempty(indices) ? 0 : pop!(indices)
+end
+function get_free_indice(ecs::ECSManager)::Int
     free_indices = get_free_indices(ecs)
 
     if !isempty(free_indices)
@@ -97,10 +150,25 @@ function get_free_indice(ecs::ECSManager)
 	end
 end
 
-add_to_free_indices(ecs::ECSManager, i::Int) = (push!(get_free_indices(ecs), i); ecs.entities[i] = nothing)
+add_to_free_indices(ecs::ECSManager, i::Int) = begin
+	push!(get_free_indices(ecs), i)
+	ecs.entities[i] = nothing
+end
 
-get_data(a::ArchetypeData) = getfield(a, :data)
-get_systems(a::ArchetypeData) = getfield(a, :systems)
+@inline get_data(a::ArchetypeData) = getfield(a, :data)
+@inline get_systems(a::ArchetypeData) = getfield(a, :systems)
+
+add_to_addqueue(ecs::ECSManager, e::Entity, data::NamedTuple) = begin
+    push!(ecs.queue.add_queue, e)
+    for key in keys(data)
+    	elt = data[key]
+    	data_queue = ecs.queue.data
+    	haskey(data_queue, key) ? push!(data_queue[key], elt) : (data_queue[key] = typeof(elt)[elt])
+    	push!(data_queue[key], elt)
+    end
+end
+
+add_to_delqueue(ecs::ECSManager, e::Entity) = push!(ecs.queue.deletion_queue, e)
 
 #################################################### Helpers ####################################################
 
