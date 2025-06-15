@@ -156,6 +156,9 @@ We want to extend the current ECS without touching the existing systems. We'll p
     alive::Bool
 end
 
+# This structure just serve as a wrapper for the CellState. This way we can use multiple dispatch.
+# WeakRef are easier to pass through systems
+# No worry about GC. Since we return a component, it's always referenced in the ECSManager
 struct CellData
     data::WeakRef
 end
@@ -178,6 +181,20 @@ function RECS.run!(::LifeSystem, data)
 
     state.alive .= new_states
     return CellData(WeakRef(state))
+end
+
+function count_neighbors(x, y, components, indices)
+    pos_data = components[:Position]
+    state_data = components[:CellState]
+    count = 0
+
+    for i in eachindex(indices)
+        nx, ny = pos_data.x[i], pos_data.y[i]
+        if abs(nx - x) ≤ 1 && abs(ny - y) ≤ 1 && !(nx == x && ny == y)
+            count += state_data.alive[i] ? 1 : 0
+        end
+    end
+    return count
 end
 ```
 
@@ -218,11 +235,11 @@ No modification to `PhysicSystem` or `RenderSystem` was required. The only chang
 ### Example Setup
 
 ```julia
-for i in 1:100
-    create_entity!(ecs;
-        Transform = TransformComponent(rand(1:10), rand(1:10)),
-        Physic = PhysicComponent(0.1f0),
-        CellState = CellStateComponent(rand(Bool)),
+for x in 1:10, y in 1:10
+    create_entity!(ecs; 
+        Physic = PhysicComponent(0.0f0),
+        CellState = CellStateComponent(rand(Bool)), 
+        Position = PositionComponent(x, y)
     )
 end
 ```
