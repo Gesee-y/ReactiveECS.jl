@@ -4,11 +4,12 @@
 
 ## Introduction
 
-Game engine development is often seen as a domain reserved for technical elites. Yet, at the core of every performant engine lies a fundamental element: **software architecture**.
+Game engine development is often perceived as an expert-only domain. Yet, beneath every performant engine lies a single unifying force: **software architecture**.
 
-Poor architecture inevitably leads to technical debt. A good one, on the other hand, ensures **longevity**, **modularity**, and **maintainability**. Among the dominant models, the **Entity-Component-System (ECS)** paradigm stands out. However, it is not without limitations.
+A poor architecture inevitably leads to technical debt. A good one ensures **modularity**, **maintainability**, and **scalability** over time. Among the leading paradigms, the **Entity-Component-System (ECS)** stands out for its data-oriented design. However, ECS comes with its own set of trade-offs — especially regarding communication between systems and runtime flexibility.
 
-In this article, I propose a hybrid variant: the **Reactive ECS (RECS)**. This architecture retains the core principles of ECS while introducing a **reactive** model, based on system requirements, to streamline communication and improve entity processing.
+This article introduces **Reactive ECS (RECS)** — a hybrid architecture that combines the performance of ECS with the **reactivity and decoupling** of event-driven models. RECS aims to preserve ECS’s cache efficiency while offering a more declarative and composable system pipeline.
+
 
 ---
 
@@ -41,15 +42,23 @@ This method is performant but less scalable at large scale (binary limits, compl
 
 ## What is a Reactive ECS?
 
-The **Reactive ECS (RECS)** relies on a centralized architecture, where a **main manager (`ECSManager`)** groups entities by archetype.
+The **Reactive ECS (RECS)** relies on a centralized architecture, where a **main manager (`ECSManager`)** keep enetities in a giant table where the columns are components and the rows entities, then the main system groups entities's id by archetype.
 
 Systems **subscribe** to the archetypes (in our implementation, it's internally represented by a bitset, speeding up matching) they're interested in. At each tick, the manager **dispatches** the matching entities to each system.
-
-This model is based on three pillars:
+This model is based on four pillars:
 
 * Structured entity storage,
 * Targeted data distribution,
 * Reactive, data-oriented processing.
+* Entity pooling
+
+### **Key Features:**
+
+* Efficient, cache-friendly **SoA component layout**
+* Subscription-based **entity filtering**
+* **Data-pipelining** between systems via reactive listeners
+* Minimal allocations, lightweight dispatching
+* Built-in support for **entity pooling**
 
 ---
 
@@ -58,82 +67,70 @@ This model is based on three pillars:
 ```julia
 using RECS
 
-const DELTA_TIME = 0.016
-
-## Defining components
-struct Health <: AbstractComponent
+# This will create a new component
+# And set boilerplates for us
+# The constructor is just the name passed here plus the suffix "Component"
+@component Health begin
     hp::Int
 end
 
-RECS.get_bits(::Type{Health})::UInt128 = 0b1
-
-mutable struct TransformComponent <: AbstractComponent
+@component Transform begin
     x::Float32
     y::Float32
 end
-Base.getindex(t::TransformComponent, i::Int) = i == 1 ? getfield(t, :x) : getfield(t, :y)
-RECS.get_bits(::Type{TransformComponent})::UInt128 = 0b10
 
-mutable struct PhysicComponent <: AbstractComponent
+@component Physic begin
     velocity::Float32
 end
-Base.getindex(p::PhysicComponent, i::Int) = getfield(p, :velocity)
-RECS.get_bits(::Type{PhysicComponent})::UInt128 = 0b100
 
-RECS.get_name(::Type{TransformComponent}) = :Transform
-RECS.get_name(::Type{PhysicComponent}) = :Physic
-
+# We create a system
 @system PhysicSystem
 @system RenderSystem
 
-function RECS.run!(::PhysicSystem, tuple_data)
-    component_data, entity_indices = tuple_data
+# The system internal logic
+# Each system should have one
+function RECS.run!(::PhysicSystem, data)
+    components = data[1].value # This contains all the components
+    indices = data[2].value # This contains the index of the entities requested
 
-    transforms = component_data[:Transform][2]  # Actual transform data
-    physics = component_data[:Physics][2]       # Actual physics data
-    
-    transform_indices = entity_indices.data.Transform
-    physics_indices = entity_indices.data.Physics
-    
-    # Apply physics to transforms
-    for i in eachindex(transform_indices)
-        transform_idx = transform_indices[i]
-        physics_idx = physics_indices[i]
-        
-        transforms.x[transform_idx] += physics.velocity[physics_idx] * DELTA_TIME
+    # We get ne necessary components
+    transform_data = components[:Transform]
+    physic_data = components[:Physic]
+
+    # This is optimization is optional.
+    # We could have just iterated on indices instead of creating these temporary views
+    x_pos = view(transform_data.x, indices)
+    velo = view(physic_data.velocity, indices)
+
+    for i in eachindex(indices)
+        x_pos[i] += velo[i]
+    end
+
+    return transform_data
+end
+
+function RECS.run!(::RenderSystem, pos) # Here `pos` is the transform_data we returned in the PhysicSystem `run!`
+    for i in eachindex(pos)
+        t = pos[i]
+        println("Rendering entity at position ($(t.x), $(t.y))")
     end
 end
 
-function RECS.run!(::RenderSystem, tuple_data)
-    component_data, entity_indices = tuple_data
-
-    transforms = component_data[:Transform][2]
-    transform_indices = entity_indices.data.Transform
-
-    for i in eachindex(transform_indices)
-        transform = transforms[i]
-        println("Rendering entity at position ($(transform.x), $(transform.y))")
-    end
-end
-
-ecs = ECSManager{BitArchetype}()
+ecs = ECSManager()
 
 physic_sys = PhysicSystem()
 render_sys = RenderSystem()
 
-# We subscribe for a set of component
 subscribe!(ecs, physic_sys, (TransformComponent, PhysicComponent))
-listen_to(physic_sys,render_sys) # This will make the render system wait for the physic system to pass him data
+listen_to(physic_sys,render_sys)
 
-# We define our Entities
-e = Entity(BitArchetype,1; Health = Health(100), Transform = TransformComponent(1.0,2.0))
-e2 = Entity(BitArchetype,2; Health = Health(50), Transform = TransformComponent(-5.0,0.0), Physic = PhysicComponent(1.0))
+# Creating 3 entity
+# We pass as keywork argument the component of the entity
+e1 = create_entity!(ecs; Health = HealthComponent(100), Transform = TransformComponent(1.0,2.0))
+e2 = create_entity!(ecs; Health = HealthComponent(50), Transform = TransformComponent(-5.0,0.0), Physic = PhysicComponent(1.0))
+e3 = create_entity!(ecs; Health = HealthComponent(50), Transform = TransformComponent(-5.0,0.0), Physic = PhysicComponent(1.0))
 
-# We add them to our manager
-add_entity!(ecs, e)
-add_entity!(ecs, e2)
-
-# We launch the system, it will be executed as an asynchronous task
+# We launch the system. Internally, it's creating an asynchronous task
 run_system!(physic_sys)
 run_system!(render_sys)
 
@@ -141,25 +138,52 @@ N = 3
 
 for i in 1:N
     println("FRAME $i")
-    dispatch_data(ecs) # We dispatch data to all the systems
+
+    # We dispatch data and each system will execute his `run!` function
+    dispatch_data(ecs)
     yield()
+    sleep(0.016)
 end
 ```
 
-> **Note** : the function `listen_to` just add the system as a listener, the 2 system doesn't need each other. the listener (the last argument of the function) just wait passively for data (that may be coming from anyone) and the source just pass the results of his `run!` function to every system listening to him.
+> **Note** : the function `listen_to` just add the system as a listener, the 2 systems don't need each other. the listener (the last argument of the function) simply wait passively for data which can come from anyone, and the source just pass the results of his `run!` function to every system listening to him.
 
 ---
 
 ### Technical Overview
 
+### **Internal Storage**
+
+Components are stored in a **Struct of Arrays (SoA)** layout. When a new component is added, its SoA resizes to match the size of others, ensuring consistent index mapping. When an entity is added, a new slot is created across all SoAs, and that index becomes the entity ID. Upon removal, the index is marked unused and removed from matching archetypes.
+
+Unused slots remain undefined but reserved — enabling **fast pooling** and simple memory reuse.
+
+```
+
+        INTERNAL STORAGE
+ _______________________________________________________
+|   |     Health    |     Transform    |    Physic     |
+|-------------------------------------------------------     
+|   |      hp       |    x    |    y   |    velocity   |   
+|-------------------------------------------------------
+| 1 |      50       |   1.0   |   1.0  |      //       |
+|-------------------------------------------------------
+| 2 |      50       |  -5.0   |   1.0  |     1.0       |     
+|-------------------------------------------------------
+| 3 |      50       |  -5.0   |   1.0  |     1.0       |
+|------------------------------------------------------|
+
+If a system have subscribed to the archetype (Transform, Physic), when the entity 1 is added, nothing happens
+When the entity 2 is added, since it match the archetype, its index will be added to vector, so that we will directly dispatch him when needed instead of querying again
+```
 #### Dispatching Logic
 
 The `ECSManager` acts as the central coordinator. It holds all components using a **Struct of Arrays (SoA)** layout for cache-friendly access patterns. When `dispatch_data` is called, the manager sends each subscribed system a **tuple of `WeakRef`s** to simplify memory handling and avoid unnecessary allocations.
 
-* The **first element** is a `WeakRef` to a dictionary mapping component names (as defined by `get_name`) to their SoA data.
-* The **second element** is a `WeakRef` to an `aSoA` (an associative Struct of Arrays), which maps each component name to a vector of indices. These indices reference the actual data within the SoA for entities that match the system's subscription.
+* The **first element** is a `WeakRef` to a dictionary mapping component names (as defined in `@component`) to their SoA data.
+* The **second element** is a `WeakRef` to an `Vector{Int}`,a vector of the requested entities's indices. These indices reference the actual data within the SoA for entities that match the system's subscription.
 
-This design avoids the need for optional components — systems technically have access to all registered components — but only the relevant subset is prefiltered and passed to them for iteration.
+This design eliminates the need for explicitly optional components — systems technically have access to all registered components due to the sparse nature of the data's storage — but only the relevant subset is prefiltered and passed to them for iteration.
 
 #### Subscription Logic
 
@@ -173,29 +197,32 @@ Calling `run_system!` starts the system in a blocking task, which suspends execu
 
 To prevent runtime issues, **cyclic dependencies between systems are detected recursively** during `listen_to` registration, and a warning is emitted if a cycle is found.
 
-Then, the system listening to another one will be executed as asynchronous task so there is no clear execution order but instead, you can chain the execution by making him listen to the system you want it to execute after.
+Then, the system listening to another one will be executed as asynchronous task so there is no enforced execution order. Instead, systems can be chained via listener relationships.
 
-If a system encounters an error during execution, it will raise an exception. Logging support for crashes will be added in the future. A crashed system can be restarted by simply calling `run_system!` again.
+If a system encounters an error during execution, it will raise a warning that can be logged and the system's execution will be stopped. A crashed system can be restarted by simply calling `run_system!` again.
 
 ---
 
 ### Overview
 
+## **Execution Diagram**
+
 ```
           ┌───────────────┐
-          │ ECSManager    │ # When dispatch_data is called, the ECSManager will distribute the reference
-          │ (Archetypes)  │ # To the correct group of entities to the correct systems
+          │  ECSManager   │
           └─────┬─────────┘
-                │
+                │ dispatch_data()
         ┌───────┼──────────────┐
         │       │              │
 ┌──────▼───┐ ┌──▼────────┐ ┌───▼─────────┐
-│ Physic   │ │ Print     │ │ Render      │ # These subsystems are just waiting for data, nothing else
+│ Physic   │ │ Print     │ │ Render      │
 │ System   │ │ System    │ │ System      │
 └────▼─────┘ └───────────┘ └─────────────┘
      |                           |
-     |    sending the result     |
-     |---------------------------|
+     |      Forward result       |
+     └────────────┬──────────────┘
+                  ▼
+         Systems listening for output
 ```
 
 ---
@@ -235,13 +262,13 @@ If a system encounters an error during execution, it will raise an exception. Lo
 
 ### Entity operations
 
-* **Adding entity** : 12.5 μs (24 alloc)
-* **Removing entity** : 60.7 μs (30 alloc)
+* **Adding entity** : 869 ns (8 allocations: 896 bytes)
+* **Removing entity** : 168 ns (1 allocations: 90 bytes)
 
 > **Analysis**:
 >
-> * Adding an entity requires scanning all components to classify it in the ECSManager and matching against all archetypes: `O(n + k)`.
-> * Removing is costlier due to swap removals from multiple SoA buffers and reference cleaning: also `O(n + k)` but with higher constant factors.
+> * Adding an entity requires scanning all archetypes to classify it in the ECSManager and adding his components to the manager: `O(n + k)` where `n` is the number of archetype and k the number of components of the entity.
+> * Removing is simpler, it just require to mark the index of the enity as free and remove his index from all the archetypes it belongs to. This operation is `O(k)` where `k` is the number of archetype the entity matched 
 
 ### Scalability test
 
@@ -251,7 +278,81 @@ On a benchmarked 400k entities under dual-system translation (e.g., Physic + Ren
 
 ## Comparative Table
 
-> This section will be added soon.
+> *Note*: The benchmark for the other engine hasn't been done by me. The characteristic of that person's machine is :
+
+* **OS:** Linux 64-Bit (Kernel: 6.10.4)
+* **CPU:** 3.13GHz @ 12Cores
+* **RAM:** 47GB
+* **Compiler:** gcc (GCC) 14.2.1
+
+> While mine is :
+
+* **OS**: Windows 10
+* **CPU**: Intel Pentium T4400 @ 2.2 GHz
+* **RAM**: 2 GB DDR3
+* **Julia**: v1.10.3
+
+### Creating Entities
+
+|                                           | EntityX   | EnTT   | Ginseng   | mustache   | Flecs    | pico_ecs   | gaia-ecs   | RECS    |
+|:------------------------------------------|:----------|:-------|:----------|:-----------|:---------|:-----------|:-----------|:--------|
+| Create     1 entities with two Components | 1368ns    | 2881ns | 10449ns   | 2327ns     | 439949ns | 1331ns     | 4683ns     | 862ns   |
+| Create     4 entities with two Components | 1816ns    | 3155ns | 10119ns   | 2692ns     | 444861ns | 1315ns     | 4901ns     | 2412ns  |
+| Create     8 entities with two Components | 2245ns    | 3461ns | 10313ns   | 3086ns     | 444572ns | 1426ns     | 5522ns     | 4433ns |
+| Create    16 entities with two Components | 2995ns    | 3812ns | 10869ns   | 3654ns     | 443523ns | 1555ns     | 6458ns     | 6921ns  |
+| Create    32 entities with two Components | 4233ns    | 4419ns | 11265ns   | 4838ns     | 448326ns | 1875ns     | 8323ns     | 12598ns |
+| Create    64 entities with two Components | 6848ns    | 5706ns | 12227ns   | 7042ns     | 467177ns | 2499ns     | 12369ns    | 21931ns |
+
+|                                           | EntityX   | EnTT   | Ginseng   | mustache   | Flecs   | pico_ecs   | gaia-ecs   | RECS
+|:------------------------------------------|:----------|:-------|:----------|:-----------|:--------|:-----------|:-----------|:---------|
+| Create   256 entities with two Components | 21us      | 13us   | 16us      | 20us       | 535us   | 6us        | 36us       | 60us     | 
+| Create   ~1K entities with two Components | 81us      | 42us   | 34us      | 73us       | 846us   | 21us       | 125us      | 347us    |
+| Create   ~4K entities with two Components | 318us     | 161us  | 101us     | 283us      | 1958us  | 92us       | 481us      | 1256us   |
+| Create  ~16K entities with two Components | 1319us    | 623us  | 363us     | 1109us     | 6365us  | 366us      | 1924us     | 4518us   |
+
+### Destroying Entities
+
+|                                            | EntityX   | EnTT   | Ginseng   | Flecs    | pico_ecs   | gaia-ecs   | RECS     |
+|:-------------------------------------------|:----------|:-------|:----------|:---------|:-----------|:-----------|:---------|
+| Destroy     1 entities with two components | 1008ns    | 904ns  | 1056ns    | 364035ns | 1208ns     | 3074ns     | 168ns    |
+| Destroy     4 entities with two components | 1236ns    | 1028ns | 1419ns    | 363733ns | 1241ns     | 3355ns     | 668ns    |
+| Destroy     8 entities with two components | 1366ns    | 1196ns | 1975ns    | 381173ns | 1267ns     | 3751ns     | 1426ns   |
+| Destroy    16 entities with two components | 1660ns    | 1502ns | 2793ns    | 371021ns | 1320ns     | 4752ns     | 2688ns   |
+| Destroy    32 entities with two components | 2394ns    | 2139ns | 4419ns    | 377250ns | 1438ns     | 6833ns     | 5312ns   |
+| Destroy    64 entities with two components | 3815ns    | 3372ns | 7731ns    | 376331ns | 1644ns     | 10905ns    | 10752ns  |
+
+|                                            | EntityX   | EnTT   | Ginseng   | Flecs   | pico_ecs   | gaia-ecs   | RECS      |
+|:-------------------------------------------|:----------|:-------|:----------|:--------|:-----------|:-----------|:----------|
+| Destroy   256 entities with two components | 12us      | 11us   | 28us      | 383us   | 2us        | 32us       | 43us      |
+| Destroy   ~1K entities with two components | 48us      | 40us   | 105us     | 415us   | 8us        | 121us      | 168us     |
+| Destroy   ~4K entities with two components | 201us     | 157us  | 434us     | 590us   | 32us       | 487us      | 627us     |
+| Destroy  ~16K entities with two components | 812us     | 627us  | 1743us    | 1243us  | 122us      | 2038us     | 2688us    |
+
+> **Analysis**
+> *Adding entities* just consist of resizing the big table of data for one more entry, which may be costly, so in these benchmark, we batched it and we resized in one run instead of one at a time.
+> *Removing entities* just consist of marking the entity's index as available and when creating a new entity, he will override the old one.
+It also remove the entity in the vector of index of the archetype they matched.
+
+### Updating System
+
+|                                      | EntityX   | EnTT   | Ginseng   | mustache   | Flecs   | pico_ecs   | gaia-ecs   | RECS     |
+|:-------------------------------------|:----------|:-------|:----------|:-----------|:--------|:-----------|:-----------|:---------|
+| Update     1 entities with 2 systems | 29ns      | 16ns   | 7ns       | 36ns       | 577ns   | 16ns       | 53ns       | 560 ns   |
+| Update     4 entities with 2 systems | 75ns      | 45ns   | 28ns      | 126ns      | 1313ns  | 34ns       | 113ns      | 560 ns   |
+| Update     8 entities with 2 systems | 137ns     | 87ns   | 51ns      | 151ns      | 1475ns  | 55ns       | 133ns      | 560 ns   |
+| Update    16 entities with 2 systems | 266ns     | 145ns  | 94ns      | 190ns      | 1389ns  | 95ns       | 147ns      | 560 ns   |
+| Update    32 entities with 2 systems | 534ns     | 278ns  | 198ns     | 242ns      | 1467ns  | 194ns      | 191ns      | 560 ns   |
+| Update    64 entities with 2 systems | 1080ns    | 555ns  | 404ns     | 357ns      | 1583ns  | 353ns      | 300ns      | 560 ns   |
+
+|                                      | EntityX   | EnTT   | Ginseng   | mustache   | Flecs   | pico_ecs   | gaia-ecs   | RECS     |
+|:-------------------------------------|:----------|:-------|:----------|:-----------|:--------|:-----------|:-----------|:---------|
+| Update   256 entities with 2 systems | 4us       | 2us    | 1us       | 1us        | 2us     | 1us        | 1us        | 560 ns   |
+| Update   ~1K entities with 2 systems | 18us      | 8us    | 7us       | 3us        | 4us     | 7us        | 4us        | 560 ns   |
+| Update   ~4K entities with 2 systems | 82us      | 32us   | 28us      | 14us       | 15us    | 41us       | 15us       | 560 ns   |
+| Update  ~16K entities with 2 systems | 301us     | 145us  | 132us     | 56us       | 56us    | 165us      | 67us       | 560 ns   |
+
+> **Analysis**
+> The RECS is capable to achieve these performances due to preclassified data and the efficient use of pooling and sparse struct of arrays
 
 ---
 
@@ -264,14 +365,24 @@ On a benchmarked 400k entities under dual-system translation (e.g., Physic + Ren
 * **Improved memory locality**: components stored in contiguous SoA layout.
 * **Ready for distributed architecture**: ECSManager can be centralized for multiplayer or server-client architectures.
 
+## Actual limitation
+
+* **Hard to profile**: The asynchronous nature of the architecture make it harder to use, debug and monitor
+
 ---
 
 ## Conclusion
 
 RECS overcomes classical ECS limitations by offering **better scalability**, **good stability**, **a reactive architecture**, and improved readiness for **parallel or distributed processing**.
-
+This architecture is particularly suited for real-time simulation, 2D/3D games, and projects requiring dynamic reactivity without compromising performance.
 This model has been implemented for my experimental game engine in Julia. It combines ECS simplicity with targeted dispatch reactivity, without sacrificing performance.
 
 For technical questions or contributions, feel free to reach out.
+
+https://claude.ai/public/artifacts/a3ed064e-673d-407b-9cbf-9797546fae06
+
+---
+
+Voici la version corrigée de ton article avec les fautes d’anglais rectifiées, sans altérer ton style ou les termes techniques. Les corrections portent sur la grammaire, la conjugaison, la ponctuation et la précision lexicale. Je te fournis la version complète corrigée :
 
 ---
