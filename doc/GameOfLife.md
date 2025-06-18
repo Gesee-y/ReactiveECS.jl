@@ -1,7 +1,7 @@
 ## Conway's Game of life
 
 The Conway's game of life is a popular game in which cells move, live and die
-On [Rust discourse](https://users.rust-lang.org), a thread named [Please don't put ECS in your game engine](https://users.rust-lang.org/t/please-dont-put-ecs-into-your-game-engine/49305), wes about a game developper frustrated by Unity's ECS which refrain him from updating cell's state within the engine's update loop. It was a big turn dow for him and he decided to turn to Lua's LOVE, which provide more flexibility
+On [Rust discourse](https://users.rust-lang.org), a thread named [Please don't put ECS in your game engine](https://users.rust-lang.org/t/please-dont-put-ecs-into-your-game-engine/49305), was about a game developper frustrated by Unity's ECS which refrain him from updating cell's state within the engine's update loop. It was a big turn down for him so he decided to turn to Lua's LOVE, which provide more flexibility.
 
 #### Understanding the ECS Limitation
 
@@ -132,6 +132,9 @@ end
 ```julia
 ecs = ECSManager()
 
+physic_sys = PhysicSystem()
+render_sys = RenderSystem()
+
 subscribe!(ecs, physic_sys, (TransformComponent, PhysicComponent))
 listen_to(physic_sys, render_sys)
 
@@ -220,6 +223,7 @@ The same `RenderSystem` now handles both `Transform` output and `CellData`, **wi
 ### Plugging `LifeSystem` into the Flow
 
 ```julia
+life_sys = LifeSystem()
 subscribe!(ecs, life_sys, (CellStateComponent, TransformComponent))
 
 # We make the render system wait for data coming from the LifeSystem
@@ -239,7 +243,7 @@ for x in 1:10, y in 1:10
     create_entity!(ecs; 
         Physic = PhysicComponent(0.0f0),
         CellState = CellStateComponent(rand(Bool)), 
-        Position = PositionComponent(x, y)
+        Transform = TransformComponent(x, y)
     )
 end
 ```
