@@ -42,7 +42,7 @@ This method is performant but less scalable at large scale (binary limits, compl
 
 ## What is a Reactive ECS?
 
-The **Reactive ECS (RECS)** relies on a centralized architecture, where a **main manager (`ECSManager`)** keep enetities in a giant table where the columns are components and the rows entities, then the main system groups entities's id by archetype.
+The **Reactive ECS (RECS)** relies on a centralized architecture, where a **main manager (`ECSManager`)** keep entities in a giant table where the columns are components and the rows entities, then the main system groups entities's id by archetype.
 
 Systems **subscribe** to the archetypes (in our implementation, it's internally represented by a bitset, speeding up matching) they're interested in. At each tick, the manager **dispatches** the matching entities to each system.
 This model is based on four pillars:
@@ -87,13 +87,13 @@ end
 @system PhysicSystem
 @system RenderSystem
 
-# The system internal logic
+# The system's internal logic
 # Each system should have one
 function RECS.run!(::PhysicSystem, data)
     components = data[1].value # This contains all the components
     indices = data[2].value # This contains the index of the entities requested
 
-    # We get ne necessary components
+    # We get the necessary components
     transform_data = components[:Transform]
     physic_data = components[:Physic]
 
@@ -173,12 +173,12 @@ Unused slots remain undefined but reserved — enabling **fast pooling** and sim
 | 3 |      50       |  -5.0   |   1.0  |     1.0       |
 |------------------------------------------------------|
 
-If a system have subscribed to the archetype (Transform, Physic), when the entity 1 is added, nothing happens
-When the entity 2 is added, since it match the archetype, its index will be added to vector, so that we will directly dispatch him when needed instead of querying again
+If a system have subscribed to the archetype (Transform, Physic) for exanple, when the entity 1 is added, nothing happens
+When the entity 2 is added, since it match the archetype, its index will be added the archetype's vector, so that we will directly dispatch it when needed instead of querying again
 ```
 #### Dispatching Logic
 
-The `ECSManager` acts as the central coordinator. It holds all components using a **Struct of Arrays (SoA)** layout for cache-friendly access patterns. When `dispatch_data` is called, the manager sends each subscribed system a **tuple of `WeakRef`s** to simplify memory handling and avoid unnecessary allocations.
+The `ECSManager` acts as the central coordinator. It holds all components using a **Struct of Arrays (SoA)** layout for cache-friendly access patterns. When `dispatch_data` is called, the manager sends each subscribed system a **`WeakRef`** to simplify memory handling and avoid unnecessary allocations.
 
 * The **first element** is a `WeakRef` to a dictionary mapping component names (as defined in `@component`) to their SoA data.
 * The **second element** is a `WeakRef` to an `Vector{Int}`,a vector of the requested entities's indices. These indices reference the actual data within the SoA for entities that match the system's subscription.
@@ -234,7 +234,7 @@ If a system encounters an error during execution, it will raise a warning that c
 * **CPU**: Intel Pentium T4400 @ 2.2 GHz
 * **RAM**: 2 GB DDR3
 * **OS**: Windows 10
-* **Julia**: v1.10.3
+* **Julia**: v1.10.5
 * **Active threads**: 2
 
 ### Dispatch performance
@@ -250,13 +250,13 @@ If a system encounters an error during execution, it will raise a warning that c
 
 | Number of Systems  | Performance           |
 | ------------------ | --------------------- |
-| 2                  |  ~580 ns (2 alloc)    |
-| 5                  |  ~1.9 μs (20 alloc)   |
-| 10                 |  ~3.7 μs (40 alloc)   |
-| 20                 |  ~7.3 μs (80 alloc)   |
-| 50                 |  ~17.7 μs (200 alloc) |
-| 100                |  ~34.9 μs (400 alloc) |
-| 200                |  ~73.7 μs (800 alloc) |
+| 2                  |  ~580 ns (1 alloc)    |
+| 5                  |  ~1.3 μs (1 alloc)    |
+| 10                 |  ~2.7 μs (1 alloc)    |
+| 20                 |  ~5.3 μs (1 alloc)    |
+| 50                 |  ~13.5 μs (1 alloc) |
+| 100                |  ~26.1 μs (1 alloc) |
+| 200                |  ~50.3 μs (1 alloc) |
 
 > **Complexity**: `O(k)`, where `k` is the number of system subscriptions.
 
