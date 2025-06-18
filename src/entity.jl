@@ -5,7 +5,7 @@
 #################################################### Exports #####################################################
 
 export Entity
-export get_id, get_positions, get_position
+export get_id, get_positions, get_position, get_component
 
 ###################################################### Core ######################################################
 
@@ -53,8 +53,7 @@ end
 
 ############################################### Accessor functions ################################################
 
-#Base.getproperty(e::Entity,s::Symbol) = ComponentWrapper(get_id(e), WeakRef(e.world.value.world_data), s)
-#@generated Base.getproperty(c::ComponentWrapper, s::Symbol) = :(getfield(c,:data).value[getfield(c,obj)].s[getfield(c,:id)])
+Base.getproperty(e::Entity,s::Symbol) = s in fieldnames(Entity) ? getfield(e, s) : get_component(e, s)
 
 #Base.setproperty!(e::Entity,s::Symbol) = ComponentWrapper(get_id(e), WeakRef(e.world.value.world_data), s, v)
 #@generated Base.setproperty!(c::ComponentWrapper,v, s::Symbol) = :(getfield(c,:data).value[getfield(c,obj)].s[getfield(c,:id)] = getfield(c,:v))
@@ -86,6 +85,8 @@ This function returns the dict of positions of the entity, which contains the in
 This function returns the position of a entity in an `archetype`
 """
 @inline get_position(e::Entity, archetype::BitType)::Int = get_positions(e)[archetype]
+
+@inline get_component(e::Entity, s::Symbol) = e.world.value != nothing ? view(get_component(e.world.value, s), e.id) : error("The entity hasn't been added to the manager yet.")
 
 Base.show(io::IO, e::Entity) = show(io, "Entity $(get_id(e))")
 Base.show(e::Entity) = show(stdout, e)
