@@ -1,7 +1,3 @@
-Voici une version réécrite de ton article, avec un style plus fluide, structuré, professionnel et concis, sans sacrifier les détails techniques :
-
----
-
 # Comparative Study of RECS vs. Overseer.jl: ECS in Julia
 
 The **Entity-Component-System (ECS)** paradigm is essential in game development and large-scale simulations for its ability to manage thousands of entities efficiently. In Julia, two libraries stand out: **RECS** (Reactive ECS) and **Overseer.jl**. This article provides an in-depth comparison between the two, focusing on **performance**, **determinism**, **ease of use**, **verbosity**, and **intended audience**, supported by detailed benchmarks and a concrete use case.
