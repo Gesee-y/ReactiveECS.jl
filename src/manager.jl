@@ -3,7 +3,7 @@
 ##################################################################################################################
 
 export ECSManager
-export dispatch_data
+export dispatch_data, blocker, get_indices
 
 ###################################################### Core ######################################################
 
@@ -43,30 +43,58 @@ mutable struct ECSManager
 	archetypes::Dict{BitType, ArchetypeData}
 	free_indices::Vector{Int}
 	queue::Queue
+	blocker::Channel{Int}
+	sys_count::Atomic{Int}
+	sys_done::Atomic{Int}
 
 	## Constructor
 
-	ECSManager() = new(Vector{Optional{Entity}}(), WorldData(), Dict{BitVector, ArchetypeData}(), Int[], Queue())
+	ECSManager() = new(Vector{Optional{Entity}}(), WorldData(), Dict{BitVector, ArchetypeData}(),
+		Int[], Queue(), Channel{Int}(2), Atomic{Int}(0), Atomic{Int}(0))
 end
 
 ################################################### Functions ###################################################
+
+get_indices(ecs::ECSManager, archetype::BitType) = ecs.archetypes[archetype].data
+get_indices(ecs::ECSManager, sys::AbstractSystem) = ecs.archetypes[sys.archetype].data
 
 """
     dispatch_data(ecs)
 
 This function will distribute data to the systems given the archetype they have subscribed for.
 """
-function dispatch_data(ecs::ECSManager)
-    
-    ref = WeakRef(ecs.world_data.data)
+function dispatch_data(ecs::ECSManager)#, Val{:Parrallel})
+
 	for archetype in values(ecs.archetypes)
 		systems::Vector{AbstractSystem} = get_systems(archetype)
         ind = WeakRef(get_data(archetype))
 
-		for system in systems
-		    put!(system.flow, (ref, ind))
+        for system in systems
+		    put!(system.flow, ind)
 		end
 	end
+end
+
+"""
+    blocker(ecs::ECSManager)
+
+This function returns the ECSManager's blocker, which can be used with wait in order to block
+"""
+blocker(ecs::ECSManager) = take!(getfield(ecs, :blocker))
+blocker(v::Vector{Task}) = fetch.(v)
+
+"""
+    get_component(ecs::ECSManager, s::Symbol)
+
+This returns the SoA of a component of name `s`.
+"""
+get_component(ecs::ECSManager, s::Symbol) = begin 
+    w::Dict{Symbol, StructArray} = ecs.world_data.data
+    if haskey(w, s)
+    	return w[s]
+    else
+    	error("ECSManager doesn't have a component $s")
+    end
 end
 
 function Base.resize!(world_data::WorldData, n::Int)
