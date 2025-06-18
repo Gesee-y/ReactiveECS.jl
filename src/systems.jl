@@ -3,14 +3,25 @@
 ##################################################################################################################
 
 export @system
-export subscribe!, unsubscribe!, listen_to
+export subscribe!, unsubscribe!, listen_to, get_into_flow
 export run!, run_system!
 
-const SYS_CHANNEL_SIZE = Inf
+const SYS_CHANNEL_SIZE = 64
 """
     @system sys_name
 
 This macro serve to create a new system . You can initialize it with just `sys_name()`.
+
+    @macro sys_name begin
+        field1
+        field2
+          .
+          .
+          .
+        fieldn
+    end
+
+This macro can be used to create a new system with additional fields
 """
 macro system(name)
 	return quote
@@ -19,15 +30,31 @@ macro system(name)
 			flow::Channel
 			archetype::BitType
 			position::Int
+			ecs::WeakRef
 			children::Vector{AbstractSystem}
 			
 			## Constructors
 
-			$name() = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, AbstractSystem[])
+			$name() = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[])
 		end
 	end
 end
-
+#=macro system(name, block)
+	pushfirst!(block.args,
+		:(active::Bool),
+		:(flow::Channel),
+		:(archetype::BitType),
+		:(position::Int),
+		:(ecs::WeakRef),
+		:(children::Vector{AbstractSystem})
+		:(($name)() = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[]))
+		)
+    args = [true, :($name <: AbstractSystem), block]
+    
+    ex = Expr(:struct, true)
+    ex.args = args
+	return ex
+end=#
 
 ############################################### System Management ################################################
 
@@ -42,34 +69,54 @@ run!(sys::T, batch) where T <: AbstractSystem = error("run! is not defined for t
 
 function run_system!(@nospecialize(system::AbstractSystem))
     
+    ecs = system.ecs.value
+    isnothing(ecs) && error("System $system can't run without being recognized in the ECS. 
+    	Add him with subscribe!, listen_to or get_into_flow.")
+    atomic_add!(ecs.sys_count,1)
+
     # The system will run as an asynchronous task
     # We can stop it at anytime with system.active
-	@async while system.active
+	@spawn while system.active
 		batch = take!(system.flow)
 
 		try
+			ecs.sys_done[] >= ecs.sys_count[] && atomic_sub!(ecs.sys_done,1)
 		    result = run!(system, batch)
+			feed_children(system, result)
+			atomic_add!(ecs.sys_done,1)
 
-			children = system.children
-			
-			if result != nothing
-				feed_children(system, result)
+			if ecs.sys_done[] >= ecs.sys_count[] && isempty(system.flow)
+				put!(ecs.blocker, 1)
+				ecs.sys_done[] = 0
 			end
 	    catch e
 	    	system.active = false
-	    	@warn "The system $(typeof(system)) encountered an error: $e"
+	    	atomic_sub!(ecs.sys_count,1)
+	    	#unlock(ecs.data_lock)
+	    	@warn "The system $(typeof(system)) encountered an error: $(showerror(stdout,e))"
+	    	rethrow(e)
 	    end
+
+	    yield()
 	end
 end
 
 function feed_children(@nospecialize(sys::AbstractSystem), data)
-	children = sys.children
+	children::Vector{AbstractSystem} = sys.children
 		
 	for child in children
 		put!(child.flow, data)
 	end
 	
 end
+
+"""
+    get_component(sys::AbstractSystem, s::Symbol)
+
+This return the SoA of a component of name `s`.
+The system should have subscribed to the manager or be listening to another one for this to work
+"""
+get_component(sys::AbstractSystem, s::Symbol) = sys.ecs.value != nothing ? get_component(sys.ecs.value, s) : error("The system hasn't subcribed yet to the manager.")
 
 """
     listen_to(source::AbstractSystem, listener::AbstractSystem)
@@ -83,6 +130,22 @@ This function make the system `listener` wait for data coming from the system `s
 	# We will just async this to ensure that we are still on the main thread
     _check_cycle(source, listener)
     push!(source.children, listener)
+
+    listener.ecs = source.ecs
+end
+
+"""
+    get_into_flow(source::AbstractSystem, system::AbstractSystem)
+
+Use this function to make a system get into the execution's flow.
+the `system` will be connected as a child of `source` and will get all its listeners.
+the `source` system will only have `system` as listener
+"""
+function get_into_flow(source::AbstractSystem, system::AbstractSystem)
+	system.children = copy(source.children)
+	source.children = AbstractSystem[system]
+
+	listener.ecs = source.ecs
 end
 
 """
@@ -138,6 +201,8 @@ function subscribe!(ecs::ECSManager, system::AbstractSystem, components::Tuple)
 		push!(systems, system)
 		system.position = length(systems)
 	end
+
+	system.ecs = WeakRef(ecs)
 
 	return nothing
 end
