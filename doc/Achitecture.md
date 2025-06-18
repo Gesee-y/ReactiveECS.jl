@@ -379,6 +379,4 @@ This model has been implemented for my experimental game engine in Julia. It com
 
 For technical questions or contributions, feel free to reach out.
 
-https://claude.ai/public/artifacts/a3ed064e-673d-407b-9cbf-9797546fae06
-
 ---
