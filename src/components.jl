@@ -29,7 +29,7 @@ macro component(name, block)
 	ex = string(name) # Just to interpolate a symbol
 
 	# Our struct expression
-	struct_ex = Expr(:struct, true, :($struct_name <: AbstractComponent), block)
+	struct_ex = Expr(:struct, false, :($struct_name <: AbstractComponent), block)
 	eval(struct_ex)
 	idx = BIT_INDEX[]
 
