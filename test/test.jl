@@ -1,8 +1,4 @@
-include("..\\src\\RECS.jl")
-
-using .RECS
-using BenchmarkTools
-using LoopVectorization
+using RECS
 
 @component Health begin
 	hp::Int
