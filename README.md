@@ -21,6 +21,12 @@ A high-performance, modular, event-driven ECS (Entity-Component-System) architec
 ## Installation
 
 ```julia
+julia> ]add ReactiveECS
+```
+
+For development version
+
+```julia
 julia> ] add https://github.com/Gesee-y/RECS.jl
 ````
 
