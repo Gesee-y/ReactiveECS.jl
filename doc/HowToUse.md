@@ -4,7 +4,7 @@
 
 RECS is a reactive Entity-Component-System (ECS) framework in Julia, designed for high-performance game development and simulations. In an ECS, **entities** are objects, **components** store their data, and **systems** define their behavior. RECS stands out with its asynchronous, data-driven architecture, enabling modular and efficient workflows. This guide walks you through installing and using RECS to build your own ECS-based projects.
 
-For a deeper understanding of RECS's architecture, see [A Reactive Architecture for ECS](link-to-main-article).
+For a deeper understanding of RECS's architecture, see [A Reactive Architecture for ECS](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Architecture.md).
 
 ## Getting Started
 
@@ -17,7 +17,7 @@ julia> ]add ReactiveECS
 For the development version, add the GitHub repository:
 
 ```julia
-julia> ]add https://github.com/Gesee-y/RECS.jl.git
+julia> ]add https://github.com/Gesee-y/ReactiveECS.jl.git
 ```
 
 After installation, import RECS:
