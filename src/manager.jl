@@ -2,7 +2,7 @@
 ##################################################   MANAGER   ###################################################
 ##################################################################################################################
 
-export ECSManager
+export ECSManager, SysReady
 export dispatch_data, blocker, get_indices
 
 ###################################################### Core ######################################################
@@ -63,10 +63,10 @@ get_indices(ecs::ECSManager, sys::AbstractSystem) = ecs.archetypes[sys.archetype
 
 This function will distribute data to the systems given the archetype they have subscribed for.
 """
-function dispatch_data(ecs::ECSManager)#, Val{:Parrallel})
+function dispatch_data(ecs::ECSManager)
 
 	for archetype in values(ecs.archetypes)
-		systems::Vector{AbstractSystem} = get_systems(archetype)
+		systems = get_systems(archetype)
         ind = WeakRef(get_data(archetype))
 
         for system in systems
