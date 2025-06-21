@@ -27,7 +27,7 @@ julia> ]add ReactiveECS
 For development version
 
 ```julia
-julia> ] add https://github.com/Gesee-y/RECS.jl
+julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 ````
 
 > Replace the URL with the actual GitHub repo link when available.
