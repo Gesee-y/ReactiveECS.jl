@@ -25,7 +25,7 @@ mutable struct Entity
 	positions::LittleDict{BitType,Int} # This will help when we will do swap removal
 	world::WeakRef # Avoid us the need to always pass the manager around
 	components::Tuple # Contain the components's type of the entity
-
+    component_buffer::Dict{Symbol, StructArray}
 	## Constructor
 
 	Entity(id::Int, world, components) = new(id, LittleDict{BitType,Int}(), WeakRef(world), components)
@@ -47,13 +47,40 @@ This struct serve to return you the correct component when you request it with g
 """
 struct ComponentWrapper
 	id::Int
-	data::WeakRef
-	obj::Symbol
+	data::StructArray
 end
 
 ############################################### Accessor functions ################################################
 
 Base.getproperty(e::Entity,s::Symbol) = s in fieldnames(Entity) ? getfield(e, s) : get_component(e, s)
+
+
+function Base.getproperty(c::ComponentWrapper, s::Symbol)
+	data::StructArray = getfield(c,:data)
+	id = getfield(c,:id)
+    
+    d = getproperty(data, s)
+	@inbounds d[id]
+end
+@generated function Base.getindex(c::ComponentWrapper, s::Symbol)
+	println(c.parameters)
+	params = c.parameters[3].parameters
+	key = params[1]
+	types = params[2].parameters
+	types_tuple = NamedTuple{key}(types)
+    
+    return quote
+    	id = getfield(c, :id)
+		data::getproperty($types_tuple, s) = getproperty(getfield(c,:data), s)
+		data[id]
+	end
+end
+function Base.setproperty!(c::ComponentWrapper, v, s::Symbol)
+	data = getfield(c,:data)
+	id = getfield(c,:id)
+
+	getproperty(data, s)[id] = v
+end 
 
 #Base.setproperty!(e::Entity,s::Symbol) = ComponentWrapper(get_id(e), WeakRef(e.world.value.world_data), s, v)
 #@generated Base.setproperty!(c::ComponentWrapper,v, s::Symbol) = :(getfield(c,:data).value[getfield(c,obj)].s[getfield(c,:id)] = getfield(c,:v))
@@ -86,7 +113,13 @@ This function returns the position of a entity in an `archetype`
 """
 @inline get_position(e::Entity, archetype::BitType)::Int = get_positions(e)[archetype]
 
-@inline get_component(e::Entity, s::Symbol) = e.world.value != nothing ? view(get_component(e.world.value, s), e.id) : error("The entity hasn't been added to the manager yet.")
-
+get_component(e::Entity, s::Symbol) = begin
+    world = e.world.value 
+    if world != nothing
+    	return ComponentWrapper(get_id(e), get_component(world, s))
+    else
+    	error("The entity hasn't been added to the manager yet.")
+    end
+end
 Base.show(io::IO, e::Entity) = show(io, "Entity $(get_id(e))")
 Base.show(e::Entity) = show(stdout, e)
