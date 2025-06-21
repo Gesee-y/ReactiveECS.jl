@@ -11,7 +11,7 @@ For a deeper understanding of RECS's architecture, see [A Reactive Architecture 
 To install RECS, use Julia's package manager:
 
 ```julia
-julia> ]add RECS
+julia> ]add ReactiveECS
 ```
 
 For the development version, add the GitHub repository:
