@@ -1,4 +1,4 @@
-# Comparative Study of RECS vs. Overseer.jl: ECS in Julia
+# Comparative Study of ReactiveECS vs. Overseer.jl: ECS in Julia
 
 The **Entity-Component-System (ECS)** paradigm is essential in game development and large-scale simulations for its ability to manage thousands of entities efficiently. In Julia, two libraries stand out: **RECS** (Reactive ECS) and **Overseer.jl**. This article provides an in-depth comparison between the two, focusing on **performance**, **determinism**, **ease of use**, **verbosity**, and **intended audience**, supported by detailed benchmarks and a concrete use case.
 
@@ -168,7 +168,7 @@ Other operations:
 ## 8. Code Sample
 
 ```julia
-using RECS
+using ReactiveECS
 using Overseer
 using GeometryTypes
 using BenchmarkTools
@@ -267,19 +267,19 @@ println(m[e3])
 println(m[e4])
 println(m[Spring][e3])
 
-############################################### RECS takes ###################################################
+############################################### ReactiveECS takes ###################################################
 
-RECS.@component RSpatial begin
+ReactiveECS.@component RSpatial begin
     position::Main.GeometryTypes.Point3{Float64}
     velocity::Main.GeometryTypes.Vec3{Float64}
 end
 
-RECS.@component RSpring begin
+ReactiveECS.@component RSpring begin
     center::Main.GeometryTypes.Point3{Float64}
     spring_constant::Float64
 end
    
-RECS.@component RRotation begin
+ReactiveECS.@component RRotation begin
 	omega::Float64
 	center::Main.GeometryTypes.Point3{Float64}
 	axis::Main.GeometryTypes.Vec3{Float64}
@@ -287,7 +287,7 @@ end
 
 @system ROscillator
 
-function RECS.run!(sys::ROscillator, ref)
+function ReactiveECS.run!(sys::ROscillator, ref)
 	spatials = get_component(sys, :RSpatial)
 	springs = get_component(sys, :RSpring)
 	indices::Vector{Int} = ref.value
@@ -305,7 +305,7 @@ end
 
 @system RRotator
 
-function RECS.run!(sys::RRotator, ref)
+function ReactiveECS.run!(sys::RRotator, ref)
 	dt = 0.01
 	indices::Vector{Int}               = ref.value
 	spatials                           = get_component(sys, :RSpatial)
@@ -327,7 +327,7 @@ end
 
 @system RMover
 
-function RECS.run!(sys::RMover, ref)
+function ReactiveECS.run!(sys::RMover, ref)
     dt = 0.01
     spatials = get_component(sys, :RSpatial)
 	positions::Vector{Point3{Float64}} = spatials.position
