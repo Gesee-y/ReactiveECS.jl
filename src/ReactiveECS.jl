@@ -32,7 +32,6 @@ include("components.jl")
 include("manager.jl")
 include("systems.jl")
 include("operations.jl")
-include("utils.jl")
 
 init(::Type{BitVector}) = BitVector()
 init(::Type{T}) where T <: Unsigned = T(0)
