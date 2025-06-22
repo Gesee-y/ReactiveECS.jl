@@ -11,7 +11,7 @@ In traditional ECS frameworks, systems are often tightly coupled to the engine's
 
 ## The RECS Model: Reactive, Composable, Asynchronous
 
-[RECS.jl](https://github.com/Gesee-y/RECS.jl) is a Julia-based ECS framework designed from the ground up to support **data-driven, reactive, and asynchronous system execution**.
+[ReactiveECS.jl](https://github.com/Gesee-y/ReactiveECS.jl) is a Julia-based ECS framework designed from the ground up to support **data-driven, reactive, and asynchronous system execution**.
 
 Here’s how RECS solves the core issues:
 
@@ -82,7 +82,7 @@ We will show how you can plug a new system like `LifeSystem` into an already run
 Here’s a standard RECS setup with two systems: one for physics and one for rendering.
 
 ```julia
-using RECS
+using ReactiveECS
 
 @component Transform begin
     x::Float32
@@ -100,7 +100,7 @@ end
 ### Physics System Logic
 
 ```julia
-function RECS.run!(::PhysicSystem, data)
+function ReactiveECS.run!(::PhysicSystem, data)
     components = data[1].value
     indices = data[2].value
     t = components[:Transform]
@@ -120,7 +120,7 @@ end
 ### Render System (First Variant)
 
 ```julia
-function RECS.run!(::RenderSystem, pos)
+function ReactiveECS.run!(::RenderSystem, pos)
     for i in eachindex(pos)
         println("Entity at ($(pos[i].x), $(pos[i].y))")
     end
@@ -168,7 +168,7 @@ end
 
 @system LifeSystem
 
-function RECS.run!(::LifeSystem, data)
+function ReactiveECS.run!(::LifeSystem, data)
     components = data[1].value
     indices = data[2].value
     state = components[:CellState]
@@ -208,7 +208,7 @@ end
 Here’s where **Julia's multiple dispatch** shines:
 
 ```julia
-function RECS.run!(::RenderSystem, ref::CellData)
+function ReactiveECS.run!(::RenderSystem, ref::CellData)
     cell_data = ref.data.value
     for (i, cell) in enumerate(cell_data.data)
         println("Cell $i is $(cell.alive ? "alive" : "dead")")
