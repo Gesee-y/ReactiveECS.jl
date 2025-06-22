@@ -39,8 +39,8 @@ macro component(name, block)
 			$struct_ex
 			create_component(::Type{$struct_name}, args...) = $struct_name(args...)
 			export $struct_name
-			RECS.get_name(::Type{$struct_name}) = Symbol($ex)
-			RECS.get_bits(::Type{$struct_name}) = $BIT_VECTOR << $idx
+			ReactiveECS.get_name(::Type{$struct_name}) = Symbol($ex)
+			ReactiveECS.get_bits(::Type{$struct_name}) = $BIT_VECTOR << $idx
 		end)
 end
 
