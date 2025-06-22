@@ -39,7 +39,7 @@ macro system(name)
 		end
 	end
 end
-#=macro system(name, block)
+macro system(name, block)
 	pushfirst!(block.args,
 		:(active::Bool),
 		:(flow::Channel),
@@ -47,14 +47,14 @@ end
 		:(position::Int),
 		:(ecs::WeakRef),
 		:(children::Vector{AbstractSystem})
-		:(($name)() = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[]))
+		quote $name() = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[])) end
 		)
     args = [true, :($name <: AbstractSystem), block]
     
     ex = Expr(:struct, true)
     ex.args = args
 	return ex
-end=#
+end
 
 ############################################### System Management ################################################
 
