@@ -1,4 +1,4 @@
-module RECS
+module ReactiveECS
 
 using StructArrays
 using OrderedCollections
