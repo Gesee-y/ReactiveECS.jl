@@ -65,7 +65,7 @@ This model is based on four pillars:
 ### Example in Julia
 
 ```julia
-using RECS
+using ReactiveECS
 
 # This will create a new component
 # And set boilerplates for us
@@ -89,7 +89,7 @@ end
 
 # The system's internal logic
 # Each system should have one
-function RECS.run!(::PhysicSystem, data)
+function ReactiveECS.run!(::PhysicSystem, data)
     components = data[1].value # This contains all the components
     indices = data[2].value # This contains the index of the entities requested
 
