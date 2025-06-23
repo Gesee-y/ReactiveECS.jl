@@ -87,7 +87,7 @@ function run_system!(@nospecialize(system::AbstractSystem))
 
 		try
 			ecs.sys_done[] >= ecs.sys_count[] && atomic_sub!(ecs.sys_done,1)
-		    result = run!(system, batch)
+		    result = run!(ecs, system, batch)
 			feed_children(system, result)
 			atomic_add!(ecs.sys_done,1)
 
