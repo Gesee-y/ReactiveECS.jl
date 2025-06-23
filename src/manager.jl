@@ -14,12 +14,12 @@ export dispatch_data, blocker, get_indices
 Contains all the world data.
 """
 mutable struct WorldData
-	data::Dict{Symbol, StructArray}
+	data::Dict{Symbol, VirtualStructArray}
 	L::Int
 
 	## Constructor
 
-	WorldData() = new(Dict{Symbol, StructArray}(), 0)
+	WorldData() = new(Dict{Symbol, VirtualStructArray}(), 0)
 end
 
 struct ArchetypeData
@@ -97,7 +97,7 @@ blocker(v::Vector{Task}) = fetch.(v)
 This returns the SoA of a component of name `s`.
 """
 get_component(ecs::ECSManager, s::Symbol) = begin 
-    w::Dict{Symbol, StructArray} = ecs.world_data.data
+    w::Dict{Symbol, VirtualStructArray} = ecs.world_data.data
     if haskey(w, s)
     	return w[s]
     else
@@ -107,7 +107,7 @@ end
 
 function Base.resize!(world_data::WorldData, n::Int)
 	for data in values(world_data.data)
-		resize!(data, n)
+		resize!(getdata(data), n)
 	end
 
 	world_data.L = n
@@ -137,7 +137,7 @@ Base.@propagate_inbounds function Base.push!(ecs::ECSManager, entity::Entity, da
 		    w.data[key][idx] = data[key]
 		# else we create a new SoA for that component and we resize it to match the other components
 		else
-			w.data[key] = StructArray{typeof(elt)}(undef, L)
+			w.data[key] = VirtualStructArray(StructArray{typeof(elt)}(undef, L))
 			w.data[key][idx] = elt
         end
 	end
@@ -146,6 +146,7 @@ end
 Base.@propagate_inbounds function Base.append!(ecs::ECSManager, entities::Vector{Entity}, data::Dict)
 
 	w = ecs.world_data
+	struct_data = getdata(w.data)
 	L = length(w)
 	add = length(entities)
 
@@ -155,20 +156,18 @@ Base.@propagate_inbounds function Base.append!(ecs::ECSManager, entities::Vector
 			elt = data[key]
 
 			# If the component is already in our global data
-			if haskey(w.data, key)
-			    append!(w.data[key], elt)
+			if haskey(struct_data, key)
+			    append!(struct_data[key], elt)
 			# else we create a new SoA for that component and we resize it to match the other components
 			else
-				w.data[key] = StructArray{typeof(elt[1])}(undef, 0)
-				append!(w.data[key], elt)
+				struct_data[key] = StructArray{typeof(elt[1])}(undef, 0)
+				append!(struct_data[key], elt)
 	        end
 		end
 		resize!(w, L+add)
 		append!(ecs.entities, entities)
 		L += add
 	end
-	
-    return entities
 end
 
 @inline get_free_indices(ecs::ECSManager)::Vector{Int} = getfield(ecs,:free_indices)
