@@ -104,18 +104,18 @@ end
 ```julia
 function ReactiveECS.run!(world, sys::PhysicSystem, data)
     E = world[sys]
-	indices::Vector{Int} = data.value
-	L = length(indices)
+    indices::Vector{Int} = data.value
+    L = length(indices)
 
-	transforms = E.Transform
-	physics = E.Physic
+    transforms = E.Transform
+    physics = E.Physic
 
-	x_pos::Vector{Float32} = transforms.x
-	velo::Vector{Float32} = physics.velocity
+    x_pos::Vector{Float32} = transforms.x
+    velo::Vector{Float32} = physics.velocity
     dt::Float32 = sys.delta
 
     @inbounds for i in indices
-	    x_pos[i] += velo[i]*dt
+        x_pos[i] += velo[i]*dt
     end
 end
 ```
@@ -173,17 +173,17 @@ end
     size::NTuple{2, Int}
 end
 
-function ReactiveECS.run!(::LifeSystem, data)
-    components = data[1].value
-    indices = data[2].value
-    state = components[:CellState]
-    pos = components[:Position]
+function ReactiveECS.run!(world, sys::LifeSystem, data)
+    E = world[sys]
+    indices = data.value
+    state = E.CellState
+    pos = E.Position
 
     new_states = copy(state.alive)
 
     for i in eachindex(indices)
         x, y = pos.x[i], pos.y[i]
-        neighbors = count_neighbors(x, y, components, indices)
+        neighbors = count_neighbors(x, y, E, indices)
         new_states[i] = state.alive[i] ? (neighbors in (2,3)) : (neighbors == 3)
     end
 
@@ -191,9 +191,9 @@ function ReactiveECS.run!(::LifeSystem, data)
     return CellData(WeakRef(state))
 end
 
-function count_neighbors(x, y, components, indices)
-    pos_data = components[:Position]
-    state_data = components[:CellState]
+function count_neighbors(x, y, E, indices)
+    pos_data = E.Position
+    state_data = E.CellState
     count = 0
 
     for i in eachindex(indices)
