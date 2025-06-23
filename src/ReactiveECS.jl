@@ -27,6 +27,7 @@ Base type for any system.
 """
 abstract type AbstractSystem end
 
+include("utils.jl")
 include("entity.jl")
 include("components.jl")
 include("manager.jl")
