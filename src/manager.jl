@@ -54,6 +54,11 @@ mutable struct ECSManager
 		Int[], Queue(), Channel{Int}(2), Atomic{Int}(0), Atomic{Int}(0))
 end
 
+struct QueryResult
+	world::WeakRef
+	sys::WeakRef
+end
+
 ################################################### Functions ###################################################
 
 get_indices(ecs::ECSManager, archetype::BitType) = ecs.archetypes[archetype].data
@@ -68,8 +73,10 @@ function dispatch_data(ecs::ECSManager)
 
 	for archetype in values(ecs.archetypes)
 		systems = get_systems(archetype)
-        ind = WeakRef(get_data(archetype))
+		indices = get_data(archetype)
+		isempty(indices) && continue
 
+        ind = WeakRef(indices)
         for system in systems
 		    put!(system.flow, ind)
 		end
@@ -198,6 +205,9 @@ add_to_addqueue(ecs::ECSManager, e::Entity, data::NamedTuple) = begin
 end
 
 add_to_delqueue(ecs::ECSManager, e::Entity) = push!(ecs.queue.deletion_queue, e)
+
+Base.getindex(ecs::ECSManager, sys::AbstractSystem) = QueryResult(WeakRef(ecs), WeakRef(sys))
+Base.getproperty(q::QueryResult, s::Symbol) = get_component(getfield(q, :world).value, s)
 
 #################################################### Helpers ####################################################
 
