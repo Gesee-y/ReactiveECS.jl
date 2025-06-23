@@ -47,7 +47,7 @@ This struct serve to return you the correct component when you request it with g
 """
 struct ComponentWrapper
 	id::Int
-	data::StructArray
+	data::VirtualStructArray
 end
 
 struct ValWrapper{T}
