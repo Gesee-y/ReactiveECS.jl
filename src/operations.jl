@@ -43,8 +43,8 @@ create_entity!(ecs::ECSManager; kwargs...) = create_entity!(ecs, NamedTuple(kwar
 Base.@propagate_inbounds function request_entity(ecs::ECSManager, num::Int, signature::Tuple)
     entities = Entity[]
     world = ecs.world_data
-    
-    st = length(entities)
+
+    st = length(ecs.entities)+1
     en = st + num
     arch = get_bits(signature)
 
@@ -56,7 +56,10 @@ Base.@propagate_inbounds function request_entity(ecs::ECSManager, num::Int, sign
     
     for archetype in keys(archetypes)
     	if match_archetype(arch, archetype)
-    		push!(matched, archetypes[archetype])
+    		data = archetypes[archetype]
+    		arch_data = get_data(data)
+    		push!(matched, data)
+    		append!(arch_data, st:en)
     	end
     end
 
@@ -66,11 +69,6 @@ Base.@propagate_inbounds function request_entity(ecs::ECSManager, num::Int, sign
         	archetype.positions[i] = length(get_data(archetype))+i
         end
     	entities[i] = entity
-    end
-
-    for archetype in matched
-		arch_data = get_data(archetype)
-		append!(arch_data, st:en)
     end
 
     append!(ecs.entities, entities)
