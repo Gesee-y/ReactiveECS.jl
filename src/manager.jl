@@ -24,6 +24,7 @@ end
 
 struct ArchetypeData
 	data::Vector{Int}
+	positions::Dict{Int, Int}
 	systems::Vector{AbstractSystem}
 end
 
