@@ -2,7 +2,7 @@
 ###################################################   ENTITY   ###################################################
 ##################################################################################################################
 
-using FunctionWrappers
+
 
 #################################################### Exports #####################################################
 
@@ -45,22 +45,44 @@ end
 
 This struct serve to return you the correct component when you request it with get or set property
 """
-struct ComponentWrapper{T}
+struct ComponentWrapper
 	id::Int
-	data::StructArray{T}
+	data::StructArray
 end
+
+struct ValWrapper{T}
+	id::Int
+	data::Vector{T}
+	symb::Symbol
+end
+
+const WRAPPER_DICT = Dict{Tuple, ValWrapper}()
 
 ############################################### Accessor functions ################################################
 
 Base.getproperty(e::Entity,s::Symbol) = s in fieldnames(Entity) ? getfield(e, s) : get_component(e, s)
-
-function Base.getproperty(c::ComponentWrapper{T}, s::Symbol) where T
-	data::StructArray = getfield(c,:data)
-	id = getfield(c,:id)
-    
-    d::Vector{fieldtype(T, s)} = getproperty(data, s)
-	@inbounds d[id]
+function Base.setproperty!(e::Entity,s::Symbol,v)
+	world = e.world.value 
+    if world != nothing
+    	data = get_component(world, s)
+        id = get_id(e)
+    	data[id] = v
+    else
+    	error("The entity hasn't been added to the manager yet.")
+    end
 end
+
+function Base.getproperty(c::ComponentWrapper, s::Symbol)
+	data = getfield(c,:data)
+	id = getfield(c,:id)
+	return getproperty(data, s)[id]
+end
+function Base.setproperty!(c::ComponentWrapper, s::Symbol,v)
+	data = getfield(c,:data)
+	id = getfield(c,:id)
+	getproperty(data, s)[id] = v
+end
+
 @generated function Base.getindex(c::ComponentWrapper, s::Symbol)
 	println(c.parameters)
 	params = c.parameters[3].parameters
@@ -116,10 +138,12 @@ get_component(e::Entity, s::Symbol) = begin
     world = e.world.value 
     if world != nothing
     	data = get_component(world, s)
-    	return ComponentWrapper{typeof(data).parameters[1]}(get_id(e), data)
+    	return ComponentWrapper(get_id(e), data)
     else
     	error("The entity hasn't been added to the manager yet.")
     end
 end
 Base.show(io::IO, e::Entity) = show(io, "Entity $(get_id(e))")
 Base.show(e::Entity) = show(stdout, e)
+
+############################################################ Helpers ##############################################################
