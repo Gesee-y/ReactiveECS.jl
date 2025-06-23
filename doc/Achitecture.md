@@ -94,24 +94,24 @@ end
 function RECS.run!(world, sys::PhysicSystem, data)
 
     E = world[sys] # First we get some sort of wrapper for ease of use
-	indices::Vector{Int} = data.value # The indices of the matching entities
-	L = length(indices)
+    indices::Vector{Int} = data.value # The indices of the matching entities
+    L = length(indices)
 
     # Next we get the components
-	transforms = E.Transform
-	physics = E.Physic
+    transforms = E.Transform
+    physics = E.Physic
 
     # We will just work on the x axis
-	x_pos::Vector{Float32} = transforms.x
-	velo::Vector{Float32} = physics.velocity
+    x_pos::Vector{Float32} = transforms.x
+    velo::Vector{Float32} = physics.velocity
     dt::Float32 = sys.delta
 
     @inbounds for i in indices
-	    x_pos[i] += velo[i]*dt
+        x_pos[i] += velo[i]*dt
     end
 end
 
-function RECS.run!(::RenderSystem, pos) # Here `pos` is the transform_data we returned in the PhysicSystem `run!`
+function RECS.run!(_, ::RenderSystem, pos) # Here `pos` is the transform_data we returned in the PhysicSystem `run!`
     for i in eachindex(pos)
         t = pos[i]
         println("Rendering entity at position ($(t.x), $(t.y))")
