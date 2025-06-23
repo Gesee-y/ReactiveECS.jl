@@ -1,4 +1,6 @@
 ![Logo](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/assets/logo.jpg)
+*Logo temporaire*
+
 # Reactive ECS in Julia
 
 A high-performance, modular, event-driven ECS (Entity-Component-System) architecture written in Julia. Designed for game engines, simulations, or any data-oriented architecture requiring reactive system dispatching and efficient memory layout.
