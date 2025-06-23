@@ -65,7 +65,7 @@ This model is based on four pillars:
 ### Example in Julia
 
 ```julia
-using ReactiveECS
+using RECS
 
 # This will create a new component
 # And set boilerplates for us
@@ -89,7 +89,7 @@ end
 
 # The system's internal logic
 # Each system should have one
-function ReactiveECS.run!(::PhysicSystem, data)
+function RECS.run!(::PhysicSystem, data)
     components = data[1].value # This contains all the components
     indices = data[2].value # This contains the index of the entities requested
 
@@ -297,18 +297,18 @@ On a benchmarked 400k entities under dual-system translation (e.g., Physic + Ren
 |                                           | EntityX   | EnTT   | Ginseng   | mustache   | Flecs    | pico_ecs   | gaia-ecs   | RECS    |
 |:------------------------------------------|:----------|:-------|:----------|:-----------|:---------|:-----------|:-----------|:--------|
 | Create     1 entities with two Components | 1368ns    | 2881ns | 10449ns   | 2327ns     | 439949ns | 1331ns     | 4683ns     | 862ns   |
-| Create     4 entities with two Components | 1816ns    | 3155ns | 10119ns   | 2692ns     | 444861ns | 1315ns     | 4901ns     | 2412ns  |
-| Create     8 entities with two Components | 2245ns    | 3461ns | 10313ns   | 3086ns     | 444572ns | 1426ns     | 5522ns     | 4433ns |
-| Create    16 entities with two Components | 2995ns    | 3812ns | 10869ns   | 3654ns     | 443523ns | 1555ns     | 6458ns     | 6921ns  |
-| Create    32 entities with two Components | 4233ns    | 4419ns | 11265ns   | 4838ns     | 448326ns | 1875ns     | 8323ns     | 12598ns |
-| Create    64 entities with two Components | 6848ns    | 5706ns | 12227ns   | 7042ns     | 467177ns | 2499ns     | 12369ns    | 21931ns |
+| Create     4 entities with two Components | 1816ns    | 3155ns | 10119ns   | 2692ns     | 444861ns | 1315ns     | 4901ns     | 1150ns  |
+| Create     8 entities with two Components | 2245ns    | 3461ns | 10313ns   | 3086ns     | 444572ns | 1426ns     | 5522ns     | 2104ns  |
+| Create    16 entities with two Components | 2995ns    | 3812ns | 10869ns   | 3654ns     | 443523ns | 1555ns     | 6458ns     | 3850ns  |
+| Create    32 entities with two Components | 4233ns    | 4419ns | 11265ns   | 4838ns     | 448326ns | 1875ns     | 8323ns     | 5366ns |
+| Create    64 entities with two Components | 6848ns    | 5706ns | 12227ns   | 7042ns     | 467177ns | 2499ns     | 12369ns    | 8710ns |
 
 |                                           | EntityX   | EnTT   | Ginseng   | mustache   | Flecs   | pico_ecs   | gaia-ecs   | RECS
-|:------------------------------------------|:----------|:-------|:----------|:-----------|:--------|:-----------|:-----------|:---------|
-| Create   256 entities with two Components | 21us      | 13us   | 16us      | 20us       | 535us   | 6us        | 36us       | 60us     | 
-| Create   ~1K entities with two Components | 81us      | 42us   | 34us      | 73us       | 846us   | 21us       | 125us      | 347us    |
-| Create   ~4K entities with two Components | 318us     | 161us  | 101us     | 283us      | 1958us  | 92us       | 481us      | 1256us   |
-| Create  ~16K entities with two Components | 1319us    | 623us  | 363us     | 1109us     | 6365us  | 366us      | 1924us     | 4518us   |
+|:------------------------------------------|:----------|:-------|:----------|:-----------|:--------|:-----------|:-----------|:--------|
+| Create   256 entities with two Components | 21us      | 13us   | 16us      | 20us       | 535us   | 6us        | 36us       | 28us    | 
+| Create   ~1K entities with two Components | 81us      | 42us   | 34us      | 73us       | 846us   | 21us       | 125us      | 105us   |
+| Create   ~4K entities with two Components | 318us     | 161us  | 101us     | 283us      | 1958us  | 92us       | 481us      | 474us   |
+| Create  ~16K entities with two Components | 1319us    | 623us  | 363us     | 1109us     | 6365us  | 366us      | 1924us     | 2874us  |
 
 ### Destroying Entities
 
@@ -379,4 +379,3 @@ This model has been implemented for my experimental game engine in Julia. It com
 
 For technical questions or contributions, feel free to reach out.
 
----
