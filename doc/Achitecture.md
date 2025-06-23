@@ -84,29 +84,31 @@ end
 end
 
 # We create a system
-@system PhysicSystem
+@system PhysicSystem begin
+    delta::Float32
+end
 @system RenderSystem
 
 # The system's internal logic
 # Each system should have one
-function RECS.run!(::PhysicSystem, data)
-    components = data[1].value # This contains all the components
-    indices = data[2].value # This contains the index of the entities requested
+function RECS.run!(world, sys::PhysicSystem, data)
 
-    # We get the necessary components
-    transform_data = components[:Transform]
-    physic_data = components[:Physic]
+    E = world[sys] # First we get some sort of wrapper for ease of use
+	indices::Vector{Int} = data.value # The indices of the matching entities
+	L = length(indices)
 
-    # This is optimization is optional.
-    # We could have just iterated on indices instead of creating these temporary views
-    x_pos = view(transform_data.x, indices)
-    velo = view(physic_data.velocity, indices)
+    # Next we get the components
+	transforms = E.Transform
+	physics = E.Physic
 
-    for i in eachindex(indices)
-        x_pos[i] += velo[i]
+    # We will just work on the x axis
+	x_pos::Vector{Float32} = transforms.x
+	velo::Vector{Float32} = physics.velocity
+    dt::Float32 = sys.delta
+
+    @inbounds for i in indices
+	    x_pos[i] += velo[i]*dt
     end
-
-    return transform_data
 end
 
 function RECS.run!(::RenderSystem, pos) # Here `pos` is the transform_data we returned in the PhysicSystem `run!`
@@ -118,7 +120,7 @@ end
 
 ecs = ECSManager()
 
-physic_sys = PhysicSystem()
+physic_sys = PhysicSystem(1/60)
 render_sys = RenderSystem()
 
 subscribe!(ecs, physic_sys, (TransformComponent, PhysicComponent))
