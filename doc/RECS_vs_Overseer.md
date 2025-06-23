@@ -81,7 +81,7 @@ Other operations:
 
 #### Entity Creation
 
-* **RECS**: \~3 ms for 10k entities (vs. 20 ms in Overseer). Pooling and preallocation yield superior performance.
+* **RECS**: \~1.5 ms for 10k entities (vs. 20 ms in Overseer). Pooling and preallocation yield superior performance.
 * **Overseer**: Slower due to per-entity overhead and use of `SparseIntSet`.
 
 #### Update Loop
@@ -189,9 +189,9 @@ Overseer.@component struct Spring
 end
    
 Overseer.@component struct Rotation
-	omega::Float64
-	center::Point3{Float64}
-	axis::Vec3{Float64}
+    omega::Float64
+    center::Point3{Float64}
+    axis::Vec3{Float64}
 end
 
 struct Oscillator <: System end
@@ -199,10 +199,10 @@ struct Oscillator <: System end
 Overseer.requested_components(::Oscillator) = (Spatial, Spring)
 
 function Overseer.update(::Oscillator, m::AbstractLedger)
-	for e in @entities_in(m, Spatial && Spring)
-		new_v   = e.velocity - (e.position - e.center) * e.spring_constant
-		e[Spatial] = Spatial(e.position, new_v)
-	end
+    for e in @entities_in(m, Spatial && Spring)
+	new_v   = e.velocity - (e.position - e.center) * e.spring_constant
+	e[Spatial] = Spatial(e.position, new_v)
+    end
 end
 
 struct Rotator <: System  end
@@ -280,58 +280,65 @@ ReactiveECS.@component RSpring begin
 end
    
 ReactiveECS.@component RRotation begin
-	omega::Float64
-	center::Main.GeometryTypes.Point3{Float64}
-	axis::Main.GeometryTypes.Vec3{Float64}
+    omega::Float64
+    center::Main.GeometryTypes.Point3{Float64}
+    axis::Main.GeometryTypes.Vec3{Float64}
 end
 
 @system ROscillator
 
-function ReactiveECS.run!(sys::ROscillator, ref)
-	spatials = get_component(sys, :RSpatial)
-	springs = get_component(sys, :RSpring)
-	indices::Vector{Int} = ref.value
-	positions::Vector{Point3{Float64}} = spatials.position
-	velocities::Vector{Vec3{Float64}} = spatials.velocity
-	centers::Vector{Point3{Float64}} = springs.center
-	consts::Vector{Float64} = springs.spring_constant
+function ReactiveECS.run!(world, sys::ROscillator, ref)
+    E = world[sys]	
+    spatials = get_component(sys, :RSpatial)
+    springs = get_component(sys, :RSpring)
+    indices::Vector{Int} = ref.value
+    positions::Vector{Point3{Float64}} = spatials.position
+    velocities::Vector{Vec3{Float64}} = spatials.velocity
+    centers::Vector{Point3{Float64}} = springs.center
+    consts::Vector{Float64} = springs.spring_constant
 
-	@inbounds for i in indices
-		position::Point3 = positions[i]
-		new_v::Vec3   = velocities[i] - (position - centers[i]) * consts[i]
-		velocities[i] = new_v
-	end
+    @inbounds for i in indices
+        position::Point3 = positions[i]
+        new_v::Vec3   = velocities[i] - (position - centers[i]) * consts[i]
+        velocities[i] = new_v
+    end
 end
 
-@system RRotator
+@system RRotator begin
+    dt::Float64
+end
 
-function ReactiveECS.run!(sys::RRotator, ref)
-	dt = 0.01
-	indices::Vector{Int}               = ref.value
-	spatials                           = get_component(sys, :RSpatial)
-	rotations                          = get_component(sys, :RRotation)
-	centers::Vector{Point3{Float64}}   = rotations.center
-	axis::Vector{Vec3{Float64}}        = rotations.axis
-	positions::Vector{Point3{Float64}} = spatials.position
-	omegas::Vector{Float64}            = rotations.omega
-	velocities::Vector{Vec3{Float64}}  = spatials.velocity
+function ReactiveECS.run!(world, sys::RRotator, ref)
+    E = world[sys]
+    dt = sys.dt
+    indices::Vector{Int}               = ref.value
+    spatials                           = E.RSpatial
+    rotations                          = E.RRotation
+    centers::Vector{Point3{Float64}}   = rotations.center
+    axis::Vector{Vec3{Float64}}        = rotations.axis
+    positions::Vector{Point3{Float64}} = spatials.position
+    omegas::Vector{Float64}            = rotations.omega
+    velocities::Vector{Vec3{Float64}}  = spatials.velocity
     @inbounds for i in indices
     	center::Point3       = centers[i]
-		n::Vec3              = axis[i]
-		r::Point3            = - center + positions[i]
-		theta::Float64       = omegas[i] * dt
-		nnd::Vec3            = n * GeometryTypes.dot(n, r)
-		positions[i]         = Point3f0(center + nnd + (r - nnd) * cos(theta) + GeometryTypes.cross(r, n) * sin(theta))
-	end
+	n::Vec3              = axis[i]
+	r::Point3            = - center + positions[i]
+	theta::Float64       = omegas[i] * dt
+	nnd::Vec3            = n * GeometryTypes.dot(n, r)
+	positions[i]         = Point3f0(center + nnd + (r - nnd) * cos(theta) + GeometryTypes.cross(r, n) * sin(theta))
+    end
 end
 
-@system RMover
+@system RMover begin
+    dt::Float64
+end
 
-function ReactiveECS.run!(sys::RMover, ref)
-    dt = 0.01
-    spatials = get_component(sys, :RSpatial)
-	positions::Vector{Point3{Float64}} = spatials.position
-	velocities::Vector{Vec3{Float64}} = spatials.velocity
+function ReactiveECS.run!(world, sys::RMover, ref)
+    E = world[sys]
+    dt = sys.dt
+    spatials = world[sys]
+    positions::Vector{Point3{Float64}} = spatials.position
+    velocities::Vector{Vec3{Float64}} = spatials.velocity
     indices::Vector{Int} = ref.value
     @inbounds for i in indices
     	velocity::Vec3 = velocities[i]
@@ -342,8 +349,8 @@ end
 world = ECSManager()
 
 osc_sys = ROscillator()
-rot_sys = RRotator()
-move_sys = RMover()
+rot_sys = RRotator(0.01)
+move_sys = RMover(0.01)
 
 subscribe!(world, osc_sys, (RSpatialComponent, RSpringComponent))
 subscribe!(world, rot_sys, (RSpatialComponent, RRotationComponent))
@@ -372,9 +379,9 @@ run_system!(rot_sys)
 run_system!(move_sys)
 
 for _ in 1:3
-	begin
+    begin
         dispatch_data(world)
-        wait(blocker(world))
+        blocker(world)
     end
 end
 println(e1.RSpatial)
