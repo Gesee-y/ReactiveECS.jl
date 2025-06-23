@@ -2,6 +2,8 @@
 ###################################################   ENTITY   ###################################################
 ##################################################################################################################
 
+using FunctionWrappers
+
 #################################################### Exports #####################################################
 
 export Entity
@@ -21,14 +23,12 @@ the `positions` field is the index of the entity in the different archtype group
 `world` is a weak reference to the manager object.
 """
 mutable struct Entity
-	id::Int # This will help us when we will free entity, this id will be marked as available
-	positions::LittleDict{BitType,Int} # This will help when we will do swap removal
-	world::WeakRef # Avoid us the need to always pass the manager around
+	const id::Int # This will help us when we will free entity, this id will be marked as available
+	const world::WeakRef # Avoid us the need to always pass the manager around
 	components::Tuple # Contain the components's type of the entity
-    component_buffer::Dict{Symbol, StructArray}
 	## Constructor
 
-	Entity(id::Int, world, components) = new(id, LittleDict{BitType,Int}(), WeakRef(world), components)
+	Entity(id::Int, world, components) = new(id, WeakRef(world), components)
 end
 
 mutable struct EntityInterval
@@ -45,21 +45,20 @@ end
 
 This struct serve to return you the correct component when you request it with get or set property
 """
-struct ComponentWrapper
+struct ComponentWrapper{T}
 	id::Int
-	data::StructArray
+	data::StructArray{T}
 end
 
 ############################################### Accessor functions ################################################
 
 Base.getproperty(e::Entity,s::Symbol) = s in fieldnames(Entity) ? getfield(e, s) : get_component(e, s)
 
-
 function Base.getproperty(c::ComponentWrapper, s::Symbol)
 	data::StructArray = getfield(c,:data)
 	id = getfield(c,:id)
     
-    d = getproperty(data, s)
+    d::Vector{fieldtype(T, s)} = getproperty(data, s)
 	@inbounds d[id]
 end
 @generated function Base.getindex(c::ComponentWrapper, s::Symbol)
@@ -116,7 +115,8 @@ This function returns the position of a entity in an `archetype`
 get_component(e::Entity, s::Symbol) = begin
     world = e.world.value 
     if world != nothing
-    	return ComponentWrapper(get_id(e), get_component(world, s))
+    	data = get_component(world, s)
+    	return ComponentWrapper{typeof(data).parameters[1]}(get_id(e), data)
     else
     	error("The entity hasn't been added to the manager yet.")
     end
