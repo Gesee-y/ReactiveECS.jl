@@ -93,34 +93,37 @@ end
     velocity::Float32
 end
 
-@system PhysicSystem
+@system PhysicSystem begin
+    delta::Float32
+end
 @system RenderSystem
 ```
 
 ### Physics System Logic
 
 ```julia
-function ReactiveECS.run!(::PhysicSystem, data)
-    components = data[1].value
-    indices = data[2].value
-    t = components[:Transform]
-    p = components[:Physic]
+function ReactiveECS.run!(world, sys::PhysicSystem, data)
+    E = world[sys]
+	indices::Vector{Int} = data.value
+	L = length(indices)
 
-    x_pos = view(t.x, indices)
-    v = view(p.velocity, indices)
+	transforms = E.Transform
+	physics = E.Physic
 
-    for i in eachindex(indices)
-        x_pos[i] += v[i]
+	x_pos::Vector{Float32} = transforms.x
+	velo::Vector{Float32} = physics.velocity
+    dt::Float32 = sys.delta
+
+    @inbounds for i in indices
+	    x_pos[i] += velo[i]*dt
     end
-
-    return t
 end
 ```
 
 ### Render System (First Variant)
 
 ```julia
-function ReactiveECS.run!(::RenderSystem, pos)
+function ReactiveECS.run!(_, ::RenderSystem, pos)
     for i in eachindex(pos)
         println("Entity at ($(pos[i].x), $(pos[i].y))")
     end
@@ -132,7 +135,7 @@ end
 ```julia
 ecs = ECSManager()
 
-physic_sys = PhysicSystem()
+physic_sys = PhysicSystem(1/60)
 render_sys = RenderSystem()
 
 subscribe!(ecs, physic_sys, (TransformComponent, PhysicComponent))
@@ -166,7 +169,9 @@ struct CellData
     data::WeakRef
 end
 
-@system LifeSystem
+@system LifeSystem begin
+    size::NTuple{2, Int}
+end
 
 function ReactiveECS.run!(::LifeSystem, data)
     components = data[1].value
@@ -208,7 +213,7 @@ end
 Here’s where **Julia's multiple dispatch** shines:
 
 ```julia
-function ReactiveECS.run!(::RenderSystem, ref::CellData)
+function ReactiveECS.run!(_, ::RenderSystem, ref::CellData)
     cell_data = ref.data.value
     for (i, cell) in enumerate(cell_data.data)
         println("Cell $i is $(cell.alive ? "alive" : "dead")")
@@ -223,7 +228,7 @@ The same `RenderSystem` now handles both `Transform` output and `CellData`, **wi
 ### Plugging `LifeSystem` into the Flow
 
 ```julia
-life_sys = LifeSystem()
+life_sys = LifeSystem((10,10))
 subscribe!(ecs, life_sys, (CellStateComponent, TransformComponent))
 
 # We make the render system wait for data coming from the LifeSystem
@@ -239,7 +244,10 @@ No modification to `PhysicSystem` or `RenderSystem` was required. The only chang
 ### Example Setup
 
 ```julia
-for x in 1:10, y in 1:10
+size_x = life_sys.size[1]
+size_y = life_sys.size[2]
+
+for x in 1:size_x, y in 1:size_y
     create_entity!(ecs; 
         Physic = PhysicComponent(0.0f0),
         CellState = CellStateComponent(rand(Bool)), 
