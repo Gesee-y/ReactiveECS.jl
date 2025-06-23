@@ -41,38 +41,41 @@ end
 create_entity!(ecs::ECSManager; kwargs...) = create_entity!(ecs, NamedTuple(kwargs))
 
 Base.@propagate_inbounds function request_entity(ecs::ECSManager, num::Int, signature::Tuple)
-    GC.@preserve entities = ecs.entities
-    GC.@preserve world = ecs.world_data
+    entities = Entity[]
+    world = ecs.world_data
+    
     st = length(entities)
     en = st + num
     arch = get_bits(signature)
 
-    matched = Vector{BitType}()
+    matched = Vector{ArchetypeData}()
     archetypes = ecs.archetypes
     sizehint!(matched, length(archetypes))
-    resize!(entities, en)
+    sizehint!(entities, en)
     resize!(world, en)
     
     for archetype in keys(archetypes)
     	if match_archetype(arch, archetype)
-    		push!(matched, archetype)
+    		push!(matched, archetypes[archetype])
     	end
     end
 
-    for i in st:en
+    @inbounds for i in st:en
         entity = Entity(i, ecs, signature)
         for archetype in matched
-        	entity.positions[archetype] = length(get_data(archetypes[archetype]))+i
+        	archetype.positions[i] = length(get_data(archetype))+i
         end
     	entities[i] = entity
     end
 
     for archetype in matched
-		arch_data = get_data(archetypes[archetype])
+		arch_data = get_data(archetype)
 		append!(arch_data, st:en)
     end
 
-    return @view entities[st:en]
+    append!(ecs.entities, entities)
+
+    return entities
 end
 
 """
@@ -160,7 +163,8 @@ function attach_component!(entity::Entity; component)
 			# We add it
 			if match_archetype(signature, archetype)
 				arch_data = get_data(archetypes[archetype])
-				if !in(entity.positions[archetype], arch_data)
+				positions = archetypes[archetype].positions
+				if !in(id, keys(positions))
 					push!(arch_data, id)
 				end
 			end
@@ -205,7 +209,8 @@ Base.@propagate_inbounds function detach_component!(entity::Entity; component)
 			# We remove it
 			if !match_archetype(signature, archetype)
 				arch_data = get_data(archetypes[archetype])
-				if haskey(entity.positions, archetype)
+				positions = archetypes[archetype].positions
+				if haskey(id, keys(positions))
 					tmp = pop!(arch_data)
 					arch_data[id] = tmp
 				end
@@ -223,17 +228,23 @@ Base.@propagate_inbounds function _add_to_archetype(data::Dict{BitType, Archetyp
 		
 		# Checking the signature
 		if match_archetype(signature, archetype)
-			arch_data::Vector{Int} = get_data(data[archetype])
+			archetype_data::ArchetypeData = data[archetype]
+			positions::Dict{Int,Int} = archetype_data.positions
+			entity_id::Int = get_id(entity)
+			arch_data::Vector{Int} = get_data(archetype_data)
 			push!(arch_data, get_id(entity)) # We add entity index in the archetype group
-			entity.positions[archetype] = length(arch_data) # We set the entity's position in the archetype
+			
+			positions[entity_id] = length(arch_data) # We set the entity's position in the archetype
 		end
 	end
 end
 
 Base.@propagate_inbounds function _remove_from_archetype(data::Dict{BitType, ArchetypeData}, entity::Entity)
 	for archetype in keys(entity.positions)
-		pos = entity.positions[archetype]
-		arch_data::Vector{Int} = get_data(data[archetype])
+		archetype_data = data[archetypes]
+		pos::Int = archetype_data.positions[get_id(entity)]
+		positions = archetype_data.positions
+		arch_data::Vector{Int} = get_data(archetype_data)
 		if pos > 0 && !isempty(arch_data)
 			tmp::Int = pop!(arch_data) # We get the last index
 			(!isempty(arch_data) && pos <= length(arch_data)) && (arch_data[pos] = tmp)
