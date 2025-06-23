@@ -54,7 +54,7 @@ end
 
 Base.getproperty(e::Entity,s::Symbol) = s in fieldnames(Entity) ? getfield(e, s) : get_component(e, s)
 
-function Base.getproperty(c::ComponentWrapper, s::Symbol)
+function Base.getproperty(c::ComponentWrapper{T}, s::Symbol) where T
 	data::StructArray = getfield(c,:data)
 	id = getfield(c,:id)
     
