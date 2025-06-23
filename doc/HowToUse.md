@@ -17,7 +17,7 @@ julia> ]add ReactiveECS
 For the development version, add the GitHub repository:
 
 ```julia
-julia> ]add https://github.com/Gesee-y/ReactiveECS.jl.git
+julia> ]add https://github.com/Gesee-y/ReactiveECS.jl
 ```
 
 After installation, import RECS:
@@ -90,7 +90,8 @@ my_sys = MySystem()
 Systems process data via their `run!` function, called when relevant data is dispatched. Define `run!` to handle entity indices and components:
 
 ```julia
-function ReactiveECS.run!(::MySystem, ref::WeakRef)
+function ReactiveECS.run!(world, sys::MySystem, ref::WeakRef)
+    E = world[sys] # A wrapper to simplify components access
     indices = ref.value  # Indices of entities matching the system's subscription
     # Access components (see "Getting Components" below)
     # Process data
@@ -105,9 +106,10 @@ Example system moving entities:
 ```julia
 @system MoveSystem
 
-function ReactiveECS.run!(::MoveSystem, ref::WeakRef)
+function ReactiveECS.run!(world, sys::MoveSystem, ref::WeakRef)
+    E = world[sys]
     indices = ref.value
-    positions = get_component(world, :Position)  # Get all Position components
+    positions = E.Position  # Get all Position components
     for idx in indices
         positions[idx].x += 0.1  # Move entity along x-axis
     end
@@ -256,9 +258,10 @@ end
 # Define system
 @system MoveSystem
 
-function ReactiveECS.run!(::MoveSystem, ref::WeakRef)
+function ReactiveECS.run!(world, sys::MoveSystem, ref::WeakRef)
+    E = world[sys]
     indices = ref.value
-    positions = get_component(world, :Position)
+    positions = E.Position
     for idx in indices
         positions[idx].x += 0.1
     end
