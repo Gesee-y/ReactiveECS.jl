@@ -39,9 +39,19 @@ macro component(name, block)
 			$struct_ex
 			create_component(::Type{$struct_name}, args...) = $struct_name(args...)
 			export $struct_name
-			ReactiveECS.get_name(::Type{$struct_name}) = Symbol($ex)
-			ReactiveECS.get_bits(::Type{$struct_name}) = $BIT_VECTOR << $idx
-		end)
+			RECS.get_name(::Type{$struct_name}) = Symbol($ex)
+			RECS.get_bits(::Type{$struct_name}) = $BIT_VECTOR << $idx
+
+			for field in fieldnames($struct_name)
+				T = $struct_name
+				f = field
+				type = fieldtype(T, field)
+				(RECS.get_field(st::VirtualStructArray{T},
+					::Val{field})::Vector{type} = getproperty(getdata(st), (field))
+				)
+		    end
+        end
+    )
 end
 
 """
@@ -61,6 +71,13 @@ But by default, it will be the name you gave to the struct.
 """
 get_name(::T) where T <: AbstractComponent = get_name(T)
 get_name(::Type{T}) where T <: AbstractComponent = Symbol(T.name.name)
+
+"""
+    get_field(v::VirtualStructArray, s)
+
+This function return a typed field of a virtual struct array
+"""
+get_field(v::VirtualStructArray, s) = error("get_field not defined for $v")
 
 """
     get_bits(::AbstractComponent)
