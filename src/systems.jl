@@ -40,19 +40,25 @@ macro system(name)
 	end
 end
 macro system(name, block)
-	pushfirst!(block.args,
-		:(active::Bool),
-		:(flow::Channel),
-		:(archetype::BitType),
-		:(position::Int),
-		:(ecs::WeakRef),
-		:(children::Vector{AbstractSystem})
-		quote $name() = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[])) end
-		)
-    args = [true, :($name <: AbstractSystem), block]
-    
-    ex = Expr(:struct, true)
-    ex.args = args
+	ex = quote
+		mutable struct $name <: AbstractSystem
+			active::Bool
+			flow::Channel
+			archetype::BitType
+			position::Int
+			ecs::WeakRef
+			children::Vector{AbstractSystem}
+			
+			## Constructors
+
+			$name(args...) = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[], args...)
+		end
+	end
+
+	args = ex.args[2].args[3].args
+	fun = pop!(args)
+	append!(args, block.args)
+	push!(args, fun)
 	return ex
 end
 
@@ -186,14 +192,15 @@ function subscribe!(ecs::ECSManager, system::AbstractSystem, components::Tuple)
 		indices = Int[]
 
 		# Creating the new data for the archetype
-		archetype_data = ArchetypeData(indices, AbstractSystem[system])
+		archetype_data = ArchetypeData(indices, Dict{Int, Int}(), AbstractSystem[system])
 		ecs.archetypes[archetype] = archetype_data
 
 		# We will now put all the entities matching that archetype in indices
 		for entity in ecs.entities
 			if _match_archetype(entity, archetype)
-				push!(indices, get_id(entity))
-				entity.positions[archetype] = length(indices)-1
+				id = get_id(entity)
+				push!(indices, id)
+				archetype_data.positions[id] = length(indices)-1
 			end
 		end
 	else
@@ -216,6 +223,19 @@ function unsubscribe!(ecs::ECSManager, system::AbstractSystem)
 	deleteat!(get_systems(ecs.archetypes[system.archetype]), system.position)
 end
 
+Base.println(io::IO, sys::AbstractSystem) = _print(println, io, sys)
+Base.print(io::IO, sys::AbstractSystem) = _print(print, io, sys)
+Base.println(sys::AbstractSystem) = _print(println, stdout, sys)
+Base.print(sys::AbstractSystem) = _print(print, stdout, sys)
+function _print(f::Function, io::IO, sys::T) where T <: AbstractSystem
+	str = ""
+	fields = propertynames(sys)
+	custom_field_offset = 7
+	for i in 7:length(fields)
+		str *= "\t$(fields[i])=$(getproperty(sys, fields[i]))\n"
+	end
+	f("$T : \n$str")
+end
 ################################################# Helpers ######################################################
 
 function _check_cycle(source, listener)
