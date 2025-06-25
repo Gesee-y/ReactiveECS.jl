@@ -8,8 +8,9 @@ struct VirtualStructArray{T}
     ## Constructor
     VirtualStructArray(s::StructArray{T}) where T = new{T}(s)
 end
+Base.eachindex(v::VirtualStructArray) = eachindex(getdata(v))
 Base.getindex(v::VirtualStructArray, i) = getdata(v)[i]
-Base.setindex!(v::VirtualStructArray, val, i) = getdata(v)[i] = val
+Base.setindex!(v::VirtualStructArray, val, i) = (getdata(v)[i] = val)
 getdata(v::VirtualStructArray) = getfield(v, :data)
 Base.getproperty(v::VirtualStructArray, s::Symbol) = get_field(v, Val(s))
 

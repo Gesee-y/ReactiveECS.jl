@@ -3,7 +3,7 @@
 ##################################################################################################################
 
 export ECSManager, SysReady
-export dispatch_data, blocker, get_indices
+export dispatch_data, blocker, get_indices, gettree
 
 ###################################################### Core ######################################################
 
@@ -41,7 +41,9 @@ end
 mutable struct ECSManager
 	entities::Vector{Optional{Entity}}
 	world_data::WorldData # Contain all the data
+	root::Vector{Int}
 	archetypes::Dict{BitType, ArchetypeData}
+	logger::LogTracer
 	free_indices::Vector{Int}
 	queue::Queue
 	blocker::Channel{Int}
@@ -50,8 +52,8 @@ mutable struct ECSManager
 
 	## Constructor
 
-	ECSManager() = new(Vector{Optional{Entity}}(), WorldData(), Dict{BitVector, ArchetypeData}(),
-		Int[], Queue(), Channel{Int}(2), Atomic{Int}(0), Atomic{Int}(0))
+	ECSManager() = new(Vector{Optional{Entity}}(), WorldData(), Int[], Dict{BitVector, ArchetypeData}(),
+		LogTracer(), Int[], Queue(), Channel{Int}(2), Atomic{Int}(0), Atomic{Int}(0))
 end
 
 struct QueryResult
@@ -60,6 +62,12 @@ struct QueryResult
 end
 
 ################################################### Functions ###################################################
+
+get_id(ecs::ECSManager) = -1
+NodeTree.get_children(ecs::ECSManager)::Vector{Int} = get_root(ecs)
+NodeTree.get_root(ecs::ECSManager)::Vector{Int} = getfield(ecs, :root)
+NodeTree.add_child(ecs::ECSManager, e::Entity) = push!(get_root(ecs), get_id(e))
+NodeTree.get_node(ecs::ECSManager, i::Int) = i > 0 ? ecs.entities[i] : ecs.root
 
 get_indices(ecs::ECSManager, archetype::BitType) = ecs.archetypes[archetype].data
 get_indices(ecs::ECSManager, sys::AbstractSystem) = ecs.archetypes[sys.archetype].data
@@ -207,6 +215,31 @@ add_to_delqueue(ecs::ECSManager, e::Entity) = push!(ecs.queue.deletion_queue, e)
 
 Base.getindex(ecs::ECSManager, sys::AbstractSystem) = QueryResult(WeakRef(ecs), WeakRef(sys))
 Base.getproperty(q::QueryResult, s::Symbol) = get_component(getfield(q, :world).value, s)
+
+function NodeTree.print_tree(io::IO,ecs::ECSManager;decal=0,mid=1,charset=get_charset())
+	childrens = get_children(ecs)
+
+	print("ECSManager with $(length(ecs.world_data)) Nodes : ")
+
+	for i in eachindex(childrens)
+		println()
+		child = get_node(ecs,childrens[i])
+
+		for i in 1:decal+1
+			i > mid && print(charset.midpoint)
+			print(charset.indent)
+		end
+
+		if i < length(childrens) && !(decal-1>0)
+			print(charset.branch)
+		elseif !(decal-1>0)
+			print(charset.terminator)
+		end
+		print(io,charset.link)
+
+		print_tree(io,child;decal=decal+1,mid=(decal+1) + Int(i==length(childrens)))
+	end
+end
 
 #################################################### Helpers ####################################################
 

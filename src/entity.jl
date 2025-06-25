@@ -26,9 +26,11 @@ mutable struct Entity
 	const id::Int # This will help us when we will free entity, this id will be marked as available
 	const world::WeakRef # Avoid us the need to always pass the manager around
 	components::Tuple # Contain the components's type of the entity
+	parent::Int
+	children::Vector{Int}
 	## Constructor
 
-	Entity(id::Int, world, components) = new(id, WeakRef(world), components)
+	Entity(id::Int, world, components; parent=-1) = new(id, WeakRef(world), components, parent, Int[])
 end
 
 mutable struct EntityInterval
@@ -49,22 +51,75 @@ struct ComponentWrapper
 	id::Int
 	data::VirtualStructArray
 end
-
-struct ValWrapper{T}
-	id::Int
-	data::Vector{T}
-	symb::Symbol
-end
-
-const WRAPPER_DICT = Dict{Tuple, ValWrapper}()
-
 ############################################### Accessor functions ################################################
+
+# We start by overloading the NodeTree interface
+
+NodeTree.get_tree(e::Entity) = e.world.value
+NodeTree.get_root(e::Entity)::Vector{Int} = !isnothing(e.world.value) ? get_root(get_tree(e)) : error("The entity hasn't been added to the manager yet.")
+NodeTree.add_child(e::Entity, e2::Entity) = begin
+    push!(get_children(e), get_id(e2))
+    e2.parent = get_id(e)
+end
+NodeTree.remove_child(e::Entity, e2::Entity) = begin
+    children = get_children(e)
+    id = get_id(e2)
+    for i in eachindex(children)
+    	if children[i] == id
+    		children[i] = pop!(children)
+    		return
+    	end
+    end
+end
+NodeTree.remove_child(children::Vector{Int}, e2::Entity) = begin
+    id = get_id(e2)
+    for i in eachindex(children)
+    	if children[i] == id
+    		children[i] = pop!(children)
+    		return
+    	end
+    end
+end
+NodeTree.remove_child(e::Entity, i::Int) = begin
+    children = get_children(e)
+    children[i] = pop!(children)
+end
+NodeTree.get_children(e::Entity)::Vector{Int} = getfield(e, :children)
+NodeTree.get_nodeidx(e::Entity)::Int = get_id(e)
+
+function NodeTree.print_tree(io::IO,n::Entity;decal=0,mid=1,charset=get_charset())
+	childrens = get_children(n)
+	tree = get_tree(n)
+
+	print(typeof(n)," : ")
+	print(nvalue(n))
+
+	for i in eachindex(childrens)
+		println()
+		child = get_node(tree,childrens[i])
+
+		for i in 1:decal+1
+			i > mid && print(charset.midpoint)
+			print(charset.indent)
+		end
+
+		if i < length(childrens) && !(decal-1>0)
+			print(charset.branch)
+		elseif !(decal-1>0)
+			print(charset.terminator)
+		end
+		print(io,charset.link)
+
+		print_tree(io,child;decal=decal+1,mid=(decal+1) + Int(i==length(childrens)))
+	end
+end
 
 Base.getproperty(e::Entity,s::Symbol) = s in fieldnames(Entity) ? getfield(e, s) : get_component(e, s)
 function Base.setproperty!(e::Entity,s::Symbol,v)
 	world = e.world.value 
     if world != nothing
     	data = get_component(world, s)
+    	data.dirty[id] = true
         id = get_id(e)
     	data[id] = v
     else
@@ -80,6 +135,7 @@ end
 function Base.setproperty!(c::ComponentWrapper, s::Symbol,v)
 	data = getfield(c,:data)
 	id = getfield(c,:id)
+	data.dirty[id] = true
 	getproperty(data, s)[id] = v
 end
 

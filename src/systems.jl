@@ -4,7 +4,7 @@
 
 export @system
 export subscribe!, unsubscribe!, listen_to, get_into_flow
-export run!, run_system!
+export run!, run_system!, get_profile_stats
 
 const SYS_CHANNEL_SIZE = 64
 """
@@ -24,6 +24,8 @@ This macro serve to create a new system . You can initialize it with just `sys_n
 This macro can be used to create a new system with additional fields
 """
 macro system(name)
+	logname = Symbol(string(name)*"Log")
+	eval(:(@logdata $logname))
 	return quote
 		mutable struct $name <: AbstractSystem
 			active::Bool
@@ -32,14 +34,17 @@ macro system(name)
 			position::Int
 			ecs::WeakRef
 			children::Vector{AbstractSystem}
+			logdata::$logname
 			
 			## Constructors
 
-			$name() = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[])
+			$name() = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[], $logname())
 		end
 	end
 end
 macro system(name, block)
+	logname = Symbol(string(name)*"Log")
+	eval(:(@logdata $logname))
 	ex = quote
 		mutable struct $name <: AbstractSystem
 			active::Bool
@@ -48,10 +53,11 @@ macro system(name, block)
 			position::Int
 			ecs::WeakRef
 			children::Vector{AbstractSystem}
+			logdata::$logname
 			
 			## Constructors
 
-			$name(args...) = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[], args...)
+			$name(args...) = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[], $logname(), args...)
 		end
 	end
 
@@ -76,6 +82,7 @@ run!(sys::T, batch) where T <: AbstractSystem = error("run! is not defined for t
 function run_system!(@nospecialize(system::AbstractSystem))
     
     ecs = system.ecs.value
+    system.active = true
     isnothing(ecs) && error("System $system can't run without being recognized in the ECS. 
     	Add him with subscribe!, listen_to or get_into_flow.")
     atomic_add!(ecs.sys_count,1)
@@ -86,21 +93,41 @@ function run_system!(@nospecialize(system::AbstractSystem))
 		batch = take!(system.flow)
 
 		try
-			ecs.sys_done[] >= ecs.sys_count[] && atomic_sub!(ecs.sys_done,1)
-		    result = run!(ecs, system, batch)
-			feed_children(system, result)
-			atomic_add!(ecs.sys_done,1)
 
-			if ecs.sys_done[] >= ecs.sys_count[] && isempty(system.flow)
-				put!(ecs.blocker, 1)
-				ecs.sys_done[] = 0
-			end
+			# First we check if this is the last system running
+			ecs.sys_done[] >= ecs.sys_count[] && atomic_sub!(ecs.sys_done,1)
+		    debug = debug_mode()
+		    result = nothing
+
+		    # If we are in debug mode
+		    # We will log the data received, the run statistics and the value returned
+		    if debug
+		    	Log!(ecs.logger, system.logdata, INFO, "Received data : $batch")
+		    	system.logdata.stats = @timed run!(ecs, system, batch)
+		    	result = system.logdata.stats.value
+		        Log!(ecs.logger, system.logdata, INFO, "Returning data : $result")
+		    else
+		    	result = run!(ecs, system, batch)
+		    end
+		    
+		    # We then give the result to the listening system
+			feed_children(system, result)
+
+			# And atomically add him to the done systems
+			atomic_add!(ecs.sys_done,1)
 	    catch e
-	    	system.active = false
+	    	# We stop the system and we remove it from the running ones
 	    	atomic_sub!(ecs.sys_count,1)
-	    	#unlock(ecs.data_lock)
-	    	@warn "The system $(typeof(system)) encountered an error: $(showerror(stdout,e))"
-	    	rethrow(e)
+
+	    	# We log since it's a critical problem
+	    	Log!(ecs.logger, system.logdata, ERROR, "Encountered an $e")
+	    	system.active = false # We finally stop the system
+		finally
+			# We check if the system it's the last system running and if there is no more data to process
+			if ecs.sys_done[] >= ecs.sys_count[] && isempty(system.flow)
+				put!(ecs.blocker, 1) # We unblock the ecs's blocker
+				ecs.sys_done[] = 0 # And we reset the counter
+			end
 	    end
 
 	    yield()
@@ -115,6 +142,14 @@ function feed_children(@nospecialize(sys::AbstractSystem), data)
 	end
 	
 end
+
+"""
+    get_profile_stats(sys::AbstractSystem)
+
+This function will return the statistics of the last run of a system
+These statistics are in the same format as those returned by `@timed`
+"""
+get_profile_stats(sys::AbstractSystem) = sys.logdata.stats
 
 """
     get_component(sys::AbstractSystem, s::Symbol)
@@ -230,8 +265,8 @@ Base.print(sys::AbstractSystem) = _print(print, stdout, sys)
 function _print(f::Function, io::IO, sys::T) where T <: AbstractSystem
 	str = ""
 	fields = propertynames(sys)
-	custom_field_offset = 7
-	for i in 7:length(fields)
+	custom_field_offset = 8
+	for i in custom_field_offset:length(fields)
 		str *= "\t$(fields[i])=$(getproperty(sys, fields[i]))\n"
 	end
 	f("$T : \n$str")

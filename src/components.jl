@@ -3,12 +3,14 @@
 ##################################################################################################################
 
 export @component
-export create_component, get_name, get_bits
+export create_component, get_name, get_bits, is_composable, compose!
 
 const BIT_INDEX = Ref(0)
 const MAX_COMPONENT_NUM = 512
 const BIT_VECTOR = BitType == BitVector ? BitVector(ntuple(i -> i == 1, MAX_COMPONENT_NUM)) : BitType(1)
 const BIT_FUNC = () -> BIT_VECTOR >> BIT_INDEX[]
+const COMPOSE_KEYWORD = :composable
+const DIRTY_FIELD = :dirty
 
 ###################################################### Core ######################################################
 
@@ -23,10 +25,37 @@ const BIT_FUNC = () -> BIT_VECTOR >> BIT_INDEX[]
     end
 
 This macro create a new component for you. It's possible to do it manually but there is no real gains
+    @component composable name begin
+        field1
+        field2
+          .
+          .
+          .
+        fieldn
+    end
+
+This will create a new composable component.
+This means that modifications on this component propagate to its children.
+You should then define its `compose!` method like this
+
+```julia
+
+# `T` is your component type
+function compose!(vs::VirtualStructArray{T}, parent_id, child_id) where T <: AbstractComponent
+	# Your processing
+	# Should set the new data of the child
+end
+```
 """
 macro component(name, block)
 	struct_name = Symbol(string(name)*_default_suffix())
 	ex = string(name) # Just to interpolate a symbol
+	
+	# We add the dirty field
+	pushfirst!(block.args, :($DIRTY_FIELD::Bool))
+	
+	## We add the constructor
+	push!(block.args, :($struct_name(args...; dirty=true) = new(dirty, args...)))
 
 	# Our struct expression
 	struct_ex = Expr(:struct, false, :($struct_name <: AbstractComponent), block)
@@ -36,7 +65,6 @@ macro component(name, block)
 	BIT_INDEX[] += 1
 
     eval(quote
-			$struct_ex
 			create_component(::Type{$struct_name}, args...) = $struct_name(args...)
 			export $struct_name
 			RECS.get_name(::Type{$struct_name}) = Symbol($ex)
@@ -53,6 +81,55 @@ macro component(name, block)
         end
     )
 end
+macro component(compose, name, block)
+	if compose === COMPOSE_KEYWORD
+		struct_name = Symbol(string(name)*_default_suffix())
+		ex = string(name) # Just to interpolate a symbol
+
+		# We add the dirty field
+		pushfirst!(block.args, :($DIRTY_FIELD::Bool))
+
+		## We add the constructor
+		push!(block.args, :($struct_name(args...; dirty=true) = new(dirty, args...)))
+
+		# Our struct expression
+		struct_ex = Expr(:struct, false, :($struct_name <: AbstractComponent), block)
+		eval(struct_ex)
+		idx = BIT_INDEX[]
+
+		BIT_INDEX[] += 1
+
+	    eval(quote
+				create_component(::Type{$struct_name}, args...; dirty=true) = $struct_name(args..., dirty)
+				export $struct_name
+				RECS.get_name(::Type{$struct_name}) = Symbol($ex)
+				RECS.get_bits(::Type{$struct_name}) = $BIT_VECTOR << $idx
+
+				for field in fieldnames($struct_name)
+					T = $struct_name
+					f = field
+					type = fieldtype(T, field)
+					(RECS.get_field(st::VirtualStructArray{T},
+						::Val{field})::Vector{type} = getproperty(getdata(st), (field))
+					)
+			    end
+	        end
+	    )
+	else
+		error("Invalid keyword $compose")
+	end
+end
+
+"""
+    is_composable(::Type{T})
+    is_composable(::T)
+
+Returns true is the type `T` can be composed. This is similar to `is_mutable` 
+"""
+is_composable(::Type{T}) where T <: AbstractComponent = DIRTY_FIELD in fieldnames(T)
+is_composable(::T) where T <: AbstractComponent = is_composable(T)
+
+compose!(st::VirtualStructArray, p::Int, c::Int) = nothing
 
 """
     create_component(::Type{T}, args...) where T <:AbstractComponent

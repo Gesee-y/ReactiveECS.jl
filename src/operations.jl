@@ -11,7 +11,7 @@ export attach_component!, detach_component!
 This function create a new entity with the given components.
 `components` keys should match the `get_name` of the component.
 """
-function create_entity!(ecs::ECSManager, components::NamedTuple)
+function create_entity!(ecs::ECSManager, components::NamedTuple; parent=ecs)
 
 	# Creating relevant variable
 	value = values(components)
@@ -19,17 +19,19 @@ function create_entity!(ecs::ECSManager, components::NamedTuple)
 	entity_components = typeof.(value) # tuple of components types
 	id = get_free_indice(ecs) # The entity's id is fetched in the available id of the manager
 
-    entity = Entity(id, ecs, entity_components)
+    entity = Entity(id, ecs, entity_components; parent=get_id(parent))
+    push!(get_children(parent), id)
 	
 	push!(ecs, entity, components)
 	_add_to_archetype(ecs.archetypes, entity, signature)
     
 	return entity
 end
-function create_entity!(ecs::ECSManager, signature::Tuple, archetype=0)
+function create_entity!(ecs::ECSManager, signature::Tuple, archetype=0; parent=ecs)
 
 	id = get_free_indice(ecs) # The entity's id is fetched in the available id of the manager
-    entity = Entity(id, ecs, signature)
+    entity = Entity(id, ecs, entity_components; parent=get_id(parent))
+    push!(get_children(parent), id)
     w = ecs.world_data
     push!(ecs.entities, entity)
     resize!(w, length(w)+1)
@@ -38,11 +40,13 @@ function create_entity!(ecs::ECSManager, signature::Tuple, archetype=0)
     
 	return entity
 end
-create_entity!(ecs::ECSManager; kwargs...) = create_entity!(ecs, NamedTuple(kwargs))
+create_entity!(ecs::ECSManager, parent=ecs; kwargs...) = create_entity!(ecs, NamedTuple(kwargs); parent=parent)
 
-Base.@propagate_inbounds function request_entity(ecs::ECSManager, num::Int, signature::Tuple)
+Base.@propagate_inbounds function request_entity(ecs::ECSManager, num::Int, signature::Tuple; parent=ecs)
     entities = Entity[]
     world = ecs.world_data
+    parent_children::Vector{Int} = get_children(parent)
+    child_count = length(parent_children)
 
     st = length(ecs.entities)+1
     en = st + num
@@ -62,15 +66,18 @@ Base.@propagate_inbounds function request_entity(ecs::ECSManager, num::Int, sign
     		append!(arch_data, st:en)
     	end
     end
-
+    parent_id = get_id(parent)
+    
     @inbounds for i in st:en
-        entity = Entity(i, ecs, signature)
+        entity = Entity(i, ecs, signature; parent=parent_id)
+
         for archetype in matched
         	archetype.positions[i] = length(get_data(archetype))+i
         end
     	entities[i] = entity
     end
 
+    append!(parent_children, st:en)
     append!(ecs.entities, entities)
 
     return entities
@@ -106,9 +113,13 @@ end
 
 This function remove the entity from the `ecs` or the world
 """
-function remove_entity!(ecs::ECSManager, entity::Entity)
+function remove_entity!(ecs::ECSManager, entity::Entity, source=true)
+	source ? remove_child(get_node(entity.parent), get_id(entity)) : nothing
 	add_to_free_indices(ecs, entity.id)
 	_remove_from_archetype(ecs.archetypes, entity)
+	for child in get_children(entity)
+		remove_entity(ecs, ecs.entities[child])
+	end
 end
 
 """
@@ -220,6 +231,10 @@ Base.@propagate_inbounds function detach_component!(entity::Entity; component)
 end
 
 ##################################################### Helpers #####################################################
+
+_get_node(t::ObjectTree) = t
+_get_node(n::Node) = n
+_get_node(e::Entity) = get_node(gettree(e), get_id(e))
 
 Base.@propagate_inbounds function _add_to_archetype(data::Dict{BitType, ArchetypeData}, entity::Entity, signature::BitType)
 	for archetype in keys(data)
