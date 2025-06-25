@@ -1,7 +1,7 @@
 module RECS
 
-include("..\\..\\NodeTree.jl\\src\\NodeTree.jl")
-include(joinpath("..","..","Notifyers.jl","src","Notifyers.jl"))
+include(joinpath("NodeTree.jl","src","NodeTree.jl"))
+include(joinpath("Notifyers.jl","src","Notifyers.jl"))
 
 using StructArrays
 using OrderedCollections
