@@ -40,25 +40,25 @@ This method is performant but less scalable at large scale (binary limits, compl
 
 ---
 
-## What is a Reactive ECS?
+## What is RECS?
 
-The **Reactive ECS (RECS)** relies on a centralized architecture, where a **main manager (`ECSManager`)** keep entities in a giant table where the columns are components and the rows entities, then the main system groups entities's id by archetype.
+**Reactive ECS (RECS)** is a high-performance ECS framework built in Julia, designed to combine the efficiency of data-oriented design with the flexibility of reactive programming. At its core, RECS uses a centralized **ECSManager** that stores entities in a **Struct of Arrays (SoA)** layout in a columnar way (entities are rows, components are columns), groups relevant indices by archetype, and dispatches them to subscribed systems.
 
-Systems **subscribe** to the archetypes (in our implementation, it's internally represented by a bitset, speeding up matching) they're interested in. At each tick, the manager **dispatches** the matching entities to each system.
-This model is based on four pillars:
+### Core Principles
+- **Structured Storage**: Entities are stored in a cache-friendly SoA layout.
+- **Targeted Dispatch**: Systems receive only the data they need, minimizing overhead.
+- **Reactive Processing**: Systems communicate via data pipelines, using `listen_to` for loose coupling.
+- **Entity Pooling**: Reuses memory slots for fast entity creation/deletion.
 
-* Structured entity storage,
-* Targeted data distribution,
-* Reactive, data-oriented processing.
-* Entity pooling
-
-### **Key Features:**
-
-* Efficient, cache-friendly **SoA component layout**
-* Subscription-based **entity filtering**
-* **Data-pipelining** between systems via reactive listeners
-* Minimal allocations, lightweight dispatching
-* Built-in support for **entity pooling**
+### Key Features
+- **Cache-efficient SoA**: Optimizes memory access for large-scale processing.
+- **Dynamic Subscriptions**: Systems subscribe to specific component sets, updated at runtime.
+- **Reactive Pipelines**: Systems can listen to others’ outputs, enabling flexible workflows.
+- **Low Allocations**: Minimal memory overhead during dispatch and execution.
+- **Runtime Extensibility**: Add, modify, or remove systems without code changes.
+- **Advanced Event System**: Built on [Notifyers.jl](https://github.com/Gesee-y/Notifyers.jl), supporting merge, filtering, one-shot listeners, priorities, and more.
+- **Hierarchical Relationships**: Managed via [NodeTree.jl](https://github.com/Gesee-y/NodeTree.jl), with BFS/DFS traversal.
+- **Profiling Tools**: Built-in debugging and visualization for performance analysis.
 
 ---
 
@@ -83,53 +83,52 @@ end
     velocity::Float32
 end
 
-# We create a system
 @system PhysicSystem begin
     delta::Float32
 end
 @system RenderSystem
 
-# The system's internal logic
-# Each system should have one
 function RECS.run!(world, sys::PhysicSystem, data)
-
-    E = world[sys] # First we get some sort of wrapper for ease of use
-    indices::Vector{Int} = data.value # The indices of the matching entities
+    E = world[sys] # Our data
+    indices::Vector{Int} = data.value # The indices of the entities requested by the system
     L = length(indices)
 
-    # Next we get the components
-    transforms = E.Transform
-    physics = E.Physic
+    transforms = E.Transform # A struct array of transform components
+    physics = E.Physic # A struct array of physic components
 
-    # We will just work on the x axis
-    x_pos::Vector{Float32} = transforms.x
-    velo::Vector{Float32} = physics.velocity
+    x_pos = transforms.x # A vector of all the x fields of the transform components
+    velo = physics.velocity
     dt::Float32 = sys.delta
 
     @inbounds for i in indices
         x_pos[i] += velo[i]*dt
     end
+
+    return transforms # This data will be passed to the system listening to this one
 end
 
-function RECS.run!(_, ::RenderSystem, pos) # Here `pos` is the transform_data we returned in the PhysicSystem `run!`
+function RECS.run!(world, ::RenderSystem, pos)
     for i in eachindex(pos)
         t = pos[i]
         println("Rendering entity at position ($(t.x), $(t.y))")
     end
 end
 
-ecs = ECSManager()
-
-physic_sys = PhysicSystem(1/60)
+physic_sys = PhysicSystem()
 render_sys = RenderSystem()
+
+ecs = ECSManager()
 
 subscribe!(ecs, physic_sys, (TransformComponent, PhysicComponent))
 listen_to(physic_sys,render_sys)
 
-# Creating 3 entity
+# Creating 4 entity
 # We pass as keywork argument the component of the entity
-e1 = create_entity!(ecs; Health = HealthComponent(100), Transform = TransformComponent(1.0,2.0))
-e2 = create_entity!(ecs; Health = HealthComponent(50), Transform = TransformComponent(-5.0,0.0), Physic = PhysicComponent(1.0))
+create_entity!(ecs; Health = HealthComponent(100), Transform = TransformComponent(1.0,2.0))
+e1 = create_entity!(ecs; Health = HealthComponent(150), Transform = TransformComponent(1.0,2.0))
+
+# This entity will have e1 as parent
+e2 = create_entity!(ecs,e1; Health = HealthComponent(50), Transform = TransformComponent(-5.0,0.0), Physic = PhysicComponent(1.0))
 e3 = create_entity!(ecs; Health = HealthComponent(50), Transform = TransformComponent(-5.0,0.0), Physic = PhysicComponent(1.0))
 
 # We launch the system. Internally, it's creating an asynchronous task
@@ -143,6 +142,7 @@ for i in 1:N
 
     # We dispatch data and each system will execute his `run!` function
     dispatch_data(ecs)
+    blocker(ecs) # Will make the process wait for all systems to finish
     yield()
     sleep(0.016)
 end
@@ -154,7 +154,7 @@ end
 
 ### Technical Overview
 
-### **Internal Storage**
+#### **Internal Storage**
 
 Components are stored in a **Struct of Arrays (SoA)** layout. When a new component is added, its SoA resizes to match the size of others, ensuring consistent index mapping. When an entity is added, a new slot is created across all SoAs, and that index becomes the entity ID. Upon removal, the index is marked unused and removed from matching archetypes.
 
@@ -168,7 +168,9 @@ Unused slots remain undefined but reserved — enabling **fast pooling** and sim
 |-------------------------------------------------------     
 |   |      hp       |    x    |    y   |    velocity   |   
 |-------------------------------------------------------
-| 1 |      50       |   1.0   |   1.0  |      //       |
+| 1 |      100      |   1.0   |   1.0  |      //       |
+|-------------------------------------------------------
+| 2 |      150      |   1.0   |   1.0  |      //       |
 |-------------------------------------------------------
 | 2 |      50       |  -5.0   |   1.0  |     1.0       |     
 |-------------------------------------------------------
@@ -178,22 +180,36 @@ Unused slots remain undefined but reserved — enabling **fast pooling** and sim
 If a system have subscribed to the archetype (Transform, Physic) for exanple, when the entity 1 is added, nothing happens
 When the entity 2 is added, since it match the archetype, its index will be added the archetype's vector, so that we will directly dispatch it when needed instead of querying again
 ```
-#### Dispatching Logic
+
+### Tree Layout
+
+The hierarchy between entities is ensured via the package [NodeTree](https://github.com/Gesee-y/NodeTree.jl), adding support for BFS/DFS and other traversal utility using `RECS.BFS_search(ecs)` or `RECS.DFS_search(ecs)`
+We can visualize that hierarchy with `print_tree(io, ecs)`
+
+#### Example layout
+```
+ECSManager with 4 Nodes : 
+    ├─Entity : "Entity 1"
+    ├─Entity : "Entity 2"
+    │   └─Entity : "Entity 3"
+    └─Entity : "Entity 4"
+```
+
+### Dispatching Logic
 
 The `ECSManager` acts as the central coordinator. It holds all components using a **Struct of Arrays (SoA)** layout for cache-friendly access patterns. When `dispatch_data` is called, the manager sends each subscribed system a **`WeakRef`** to simplify memory handling and avoid unnecessary allocations.
 
-* The **first element** is a `WeakRef` to a dictionary mapping component names (as defined in `@component`) to their SoA data.
-* The **second element** is a `WeakRef` to an `Vector{Int}`,a vector of the requested entities's indices. These indices reference the actual data within the SoA for entities that match the system's subscription.
+The `WeakRef` point to a  `Vector{Int}`,a vector of the requested entities's indices. These indices reference the actual data within the SoA for entities that match the system's subscription.
 
 This design eliminates the need for explicitly optional components — systems technically have access to all registered components due to the sparse nature of the data's storage — but only the relevant subset is prefiltered and passed to them for iteration.
 
-#### Subscription Logic
+### Subscription Logic
 
 When a system subscribes to a set of components, the manager builds a dedicated index set containing only the entities that match this component combination. If another system has already subscribed to the same combination, the manager simply adds the new system to the existing subscription group.
 
 The `subscribe!` function has a time complexity of **`O(n)`**, where `n` is the number of existing entities. Although it can be called at any time, **it is recommended to perform subscriptions during the engine's loading phase** to avoid runtime overhead.
 
-#### System Execution
+### System Execution
 
 Calling `run_system!` starts the system in a blocking task, which suspends execution until the `ECSManager` dispatches the required data. Once unblocked, the system's `run!` function is invoked with its input data. Upon completion, the result is automatically forwarded to all systems registered as listeners via `listen_to`.
 
@@ -203,6 +219,24 @@ Then, the system listening to another one will be executed as asynchronous task 
 
 If a system encounters an error during execution, it will raise a warning that can be logged and the system's execution will be stopped. A crashed system can be restarted by simply calling `run_system!` again.
 
+### Event system
+
+ReactiveECS provide a fully functional event system. It leverage the [Notifyers.jl](https://github.com/Gesee-y/Notifyers.jl) package.
+You can define a new package with `RECS.@Notifyer(arg1::T1, arg2::T2, ..., argn::Tn)`, see [Notifyers's doc](https://github.com/Gesee-y/Notifyers.jl/blob/main/docs/index.md). You can reuse all the features available in that package here. Meaning supports for:
+- **Merge**: Combine multiple events (e.g., 10 HP changes into 1).
+- **Filtering**: Calls listener just if the event meet some conditions.
+- **One-shot Listeners**: Execute once and unsubscribe.
+- **Priorities and Delays**: Control execution order and timing.
+- **Retention**: Store recent event values.
+- **Performance**: 200 ns (no listeners), 1.6 µs (per listener), 4 µs (in single task state, independent from the listeners's count).
+
+### Debugging and profiling
+
+We can switch to debug mode by overloading the function `debug_mode()`.
+On this mode, the manager object will log the data received by each system, the data returned and profiling will be active
+We can get the statistics of a system with `get_profile_stats(system)`. The format of the stats is the same as the one returned by `@timed`.
+By default, the logs aren't directly written to a file. You should use `write!(io, ecs.logger)` where `ecs` is your `ECSManager` object.
+
 ---
 
 ### Overview
@@ -210,21 +244,20 @@ If a system encounters an error during execution, it will raise a warning that c
 ## **Execution Diagram**
 
 ```
-          ┌───────────────┐
-          │  ECSManager   │
-          └─────┬─────────┘
-                │ dispatch_data()
-        ┌───────┼──────────────┐
-        │       │              │
-┌──────▼───┐ ┌──▼────────┐ ┌───▼─────────┐
-│ Physic   │ │ Print     │ │ Render      │
-│ System   │ │ System    │ │ System      │
-└────▼─────┘ └───────────┘ └─────────────┘
-     |                           |
-     |      Forward result       |
-     └────────────┬──────────────┘
-                  ▼
-         Systems listening for output
+    ┌───────────────┐
+    │  ECSManager   │
+    └─────┬─────────┘
+          │ dispatch_data()
+     ┌────┴────┬──────────┬
+     │         │          │
+    ┌▼────────┐┌▼─────────┐
+    │ Physic  ││ Print    │
+    │ System  ││ System   │
+    └───┬─────┘└──────────┘
+        │ Forward result
+        └────────────┬────────────┐
+                     ▼            ▼
+                 RenderSystem  Other Listeners
 ```
 
 ---
@@ -274,7 +307,7 @@ If a system encounters an error during execution, it will raise a warning that c
 
 ### Scalability test
 
-On a benchmarked 400k entities under dual-system translation (e.g., Physic + Render) and achieved stable frame times under ~1 ms. With dispatch time at ~600 ns, overhead remains negligible, demonstrating the viability of this architecture at scale.
+On a benchmarked 100k entities under dual-system translation (e.g., Physic + Render) and achieved stable frame times under ~100 us. With dispatch time at ~600 ns, overhead remains negligible, demonstrating the viability of this architecture at scale.
 
 ---
 
@@ -337,21 +370,21 @@ It also remove the entity in the vector of index of the archetype they matched.
 
 ### Updating System
 
-|                                      | EntityX   | EnTT   | Ginseng   | mustache   | Flecs   | pico_ecs   | gaia-ecs   | RECS     |
-|:-------------------------------------|:----------|:-------|:----------|:-----------|:--------|:-----------|:-----------|:---------|
-| Update     1 entities with 2 systems | 29ns      | 16ns   | 7ns       | 36ns       | 577ns   | 16ns       | 53ns       | 560 ns   |
-| Update     4 entities with 2 systems | 75ns      | 45ns   | 28ns      | 126ns      | 1313ns  | 34ns       | 113ns      | 560 ns   |
-| Update     8 entities with 2 systems | 137ns     | 87ns   | 51ns      | 151ns      | 1475ns  | 55ns       | 133ns      | 560 ns   |
-| Update    16 entities with 2 systems | 266ns     | 145ns  | 94ns      | 190ns      | 1389ns  | 95ns       | 147ns      | 560 ns   |
-| Update    32 entities with 2 systems | 534ns     | 278ns  | 198ns     | 242ns      | 1467ns  | 194ns      | 191ns      | 560 ns   |
-| Update    64 entities with 2 systems | 1080ns    | 555ns  | 404ns     | 357ns      | 1583ns  | 353ns      | 300ns      | 560 ns   |
+|                                        | EntityX   | EnTT   | Ginseng   | mustache   | Flecs   | pico_ecs   | gaia-ecs   | RECS     |
+|:---------------------------------------|:----------|:-------|:----------|:-----------|:--------|:-----------|:-----------|:---------|
+| Dispatch     1 entities with 2 systems | 29ns      | 16ns   | 7ns       | 36ns       | 577ns   | 16ns       | 53ns       | 560 ns   |
+| Dispatch     4 entities with 2 systems | 75ns      | 45ns   | 28ns      | 126ns      | 1313ns  | 34ns       | 113ns      | 560 ns   |
+| Dispatch     8 entities with 2 systems | 137ns     | 87ns   | 51ns      | 151ns      | 1475ns  | 55ns       | 133ns      | 560 ns   |
+| Dispatch    16 entities with 2 systems | 266ns     | 145ns  | 94ns      | 190ns      | 1389ns  | 95ns       | 147ns      | 560 ns   |
+| Dispatch    32 entities with 2 systems | 534ns     | 278ns  | 198ns     | 242ns      | 1467ns  | 194ns      | 191ns      | 560 ns   |
+| Dispatch    64 entities with 2 systems | 1080ns    | 555ns  | 404ns     | 357ns      | 1583ns  | 353ns      | 300ns      | 560 ns   |
 
-|                                      | EntityX   | EnTT   | Ginseng   | mustache   | Flecs   | pico_ecs   | gaia-ecs   | RECS     |
-|:-------------------------------------|:----------|:-------|:----------|:-----------|:--------|:-----------|:-----------|:---------|
-| Update   256 entities with 2 systems | 4us       | 2us    | 1us       | 1us        | 2us     | 1us        | 1us        | 560 ns   |
-| Update   ~1K entities with 2 systems | 18us      | 8us    | 7us       | 3us        | 4us     | 7us        | 4us        | 560 ns   |
-| Update   ~4K entities with 2 systems | 82us      | 32us   | 28us      | 14us       | 15us    | 41us       | 15us       | 560 ns   |
-| Update  ~16K entities with 2 systems | 301us     | 145us  | 132us     | 56us       | 56us    | 165us      | 67us       | 560 ns   |
+|                                        | EntityX   | EnTT   | Ginseng   | mustache   | Flecs   | pico_ecs   | gaia-ecs   | RECS     |
+|:---------------------------------------|:----------|:-------|:----------|:-----------|:--------|:-----------|:-----------|:---------|
+| Dispatch   256 entities with 2 systems | 4us       | 2us    | 1us       | 1us        | 2us     | 1us        | 1us        | 560 ns   |
+| Dispatch   ~1K entities with 2 systems | 18us      | 8us    | 7us       | 3us        | 4us     | 7us        | 4us        | 560 ns   |
+| Dispatch   ~4K entities with 2 systems | 82us      | 32us   | 28us      | 14us       | 15us    | 41us       | 15us       | 560 ns   |
+| Dispatch  ~16K entities with 2 systems | 301us     | 145us  | 132us     | 56us       | 56us    | 165us      | 67us       | 560 ns   |
 
 > **Analysis**
 > The RECS is capable to achieve these performances due to preclassified data and the efficient use of pooling and sparse struct of arrays
@@ -360,16 +393,21 @@ It also remove the entity in the vector of index of the archetype they matched.
 
 ## Advantages of RECS
 
-* **Stable performance**: one dispatch per tick, no redundant queries.
-* **Custom optimisation**: each system chooses how to parallelize or vectorize its own logic.
-* **Dynamic extensibility**: systems can be added or removed at runtime.
-* **Reactive logic**: `listen_to` allows composing systems without tight coupling.
-* **Improved memory locality**: components stored in contiguous SoA layout.
-* **Ready for distributed architecture**: ECSManager can be centralized for multiplayer or server-client architectures.
+- **High Performance**: Near-constant dispatch times (~580 ns) and vectorized updates (90 µs for 100k entities).
+- **Improved memory locality**: components stored in contiguous SoA layout.
+- **Stable performance**: one dispatch per tick, no redundant queries.
+- **Reactive Design**: `listen_to` enables decoupled, dynamic system pipelines.
+- **Flexible Events**: Merge, one-shot, and prioritized events enhance reactivity.
+- **Scalability**: Efficient for 100k+ entities, with pooling and SoA.
+- **Extensibility**: Add systems at runtime with minimal code changes.
+- **Hierarchy Support**: `NodeTree.jl` provides robust parent-child relationships.
+- **Profiling**: Built-in tools for debugging and optimization.
+- **Ready for distributed architecture**: ECSManager can be centralized for multiplayer or server-client architectures.
 
 ## Actual limitation
 
-* **Hard to profile**: The asynchronous nature of the architecture make it harder to use, debug and monitor
+- **Component access**: It doesn't meet the performances I wanted, still takes 400ns for a component modification
+- **Asynchronous Complexity**: Reactive pipelines can be harder to debug, though mitigated by profiling tools.
 
 ---
 
