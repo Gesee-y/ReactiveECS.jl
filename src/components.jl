@@ -67,20 +67,22 @@ macro component(name, block)
     eval(quote
 			create_component(::Type{$struct_name}, args...) = $struct_name(args...)
 			export $struct_name
-			RECS.get_name(::Type{$struct_name}) = Symbol($ex)
-			RECS.get_bits(::Type{$struct_name}) = $BIT_VECTOR << $idx
+			get_name(::Type{$struct_name}) = Symbol($ex)
+			get_bits(::Type{$struct_name}) = $BIT_VECTOR << $idx
 
 			for field in fieldnames($struct_name)
 				T = $struct_name
 				f = field
 				type = fieldtype(T, field)
-				(RECS.get_field(st::VirtualStructArray{T},
+				(get_field(st::VirtualStructArray{T},
 					::Val{field})::Vector{type} = getproperty(getdata(st), (field))
 				)
 		    end
         end
     )
 end
+
+#=
 macro component(compose, name, block)
 	if compose === COMPOSE_KEYWORD
 		struct_name = Symbol(string(name)*_default_suffix())
@@ -119,6 +121,7 @@ macro component(compose, name, block)
 		error("Invalid keyword $compose")
 	end
 end
+=#
 
 """
     is_composable(::Type{T})
