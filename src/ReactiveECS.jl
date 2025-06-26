@@ -1,8 +1,13 @@
 module ReactiveECS
 
+include(joinpath("NodeTree.jl","src","NodeTree.jl"))
+include(joinpath("Notifyers.jl","src","Notifyers.jl"))
+
 using StructArrays
 using OrderedCollections
 using .Threads
+using .NodeTree
+using .Notifyers
 
 const BitType = UInt128
 
@@ -27,6 +32,7 @@ Base type for any system.
 """
 abstract type AbstractSystem end
 
+include(joinpath("LogTrace.jl", "src", "LogTrace.jl"))
 include("utils.jl")
 include("entity.jl")
 include("components.jl")
