@@ -289,13 +289,13 @@ end
 
 function ReactiveECS.run!(world, sys::ROscillator, ref)
     E = world[sys]	
-    spatials = get_component(sys, :RSpatial)
-    springs = get_component(sys, :RSpring)
+    spatials = E.RSpatial
+    springs = E.RSpring
     indices::Vector{Int} = ref.value
-    positions::Vector{Point3{Float64}} = spatials.position
-    velocities::Vector{Vec3{Float64}} = spatials.velocity
-    centers::Vector{Point3{Float64}} = springs.center
-    consts::Vector{Float64} = springs.spring_constant
+    positions = spatials.position
+    velocities = spatials.velocity
+    centers = springs.center
+    consts = springs.spring_constant
 
     @inbounds for i in indices
         position::Point3 = positions[i]
@@ -314,11 +314,11 @@ function ReactiveECS.run!(world, sys::RRotator, ref)
     indices::Vector{Int}               = ref.value
     spatials                           = E.RSpatial
     rotations                          = E.RRotation
-    centers::Vector{Point3{Float64}}   = rotations.center
-    axis::Vector{Vec3{Float64}}        = rotations.axis
-    positions::Vector{Point3{Float64}} = spatials.position
-    omegas::Vector{Float64}            = rotations.omega
-    velocities::Vector{Vec3{Float64}}  = spatials.velocity
+    centers                            = rotations.center
+    axis                               = rotations.axis
+    positions                          = spatials.position
+    omegas                             = rotations.omega
+    velocities                         = spatials.velocity
     @inbounds for i in indices
     	center::Point3       = centers[i]
 	n::Vec3              = axis[i]
@@ -337,8 +337,8 @@ function ReactiveECS.run!(world, sys::RMover, ref)
     E = world[sys]
     dt = sys.dt
     spatials = world[sys]
-    positions::Vector{Point3{Float64}} = spatials.position
-    velocities::Vector{Vec3{Float64}} = spatials.velocity
+    positions = spatials.position
+    velocities = spatials.velocity
     indices::Vector{Int} = ref.value
     @inbounds for i in indices
     	velocity::Vec3 = velocities[i]
