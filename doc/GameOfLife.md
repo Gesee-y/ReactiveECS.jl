@@ -1,7 +1,7 @@
 ## Conway's Game of life
 
 The Conway's game of life is a popular game in which cells move, live and die
-On [Rust discourse](https://users.rust-lang.org)'s thread "[Please don't put ECS in your game engine](https://users.rust-lang.org/t/please-dont-put-ecs-into-your-game-engine/49305)" started a game developper, frustrated with Unity's ECS where updating cell's state within the same frame was a nightmare. It was a big turn down for him that he decided to turn back to Lua's LOVE2D, which provide more flexibility.
+On [Rust discourse](https://users.rust-lang.org)'s thread "[Please don't put ECS in your game engine](https://users.rust-lang.org/t/please-dont-put-ecs-into-your-game-engine/49305)" started by a game developper, frustrated with Unity's ECS where updating cell's state within the same frame was a nightmare. It was a big turn down for him that he decided to turn back to Lua's LOVE2D, which provide more flexibility.
 
 #### Understanding the ECS Limitation
 
@@ -272,7 +272,7 @@ end
 #### Performance Considerations
 
 The RECS documentation provides benchmarks indicating efficient processing:
-- **Dispatch Performance**: ~980 ns for updating 16K entities with 3 systems, which is a low enough overhead for these process.
+- **Dispatch Performance**: ~980 ns for dispatching 16K entities with 3 systems, which is a low enough overhead for these process.
 - **Entity Operations**: Adding an entity takes ~869 ns (\(O(n + k)\)), and removing takes ~168 ns (\(O(k)\)), supporting fast system integration.
 
 For Game of Life, where thousands of cells might be processed, RECS's cache-friendly SoA layout and precomputed archetype indices ensure efficient data access, addressing performance concerns raised in the Rust thread about ECS overhead.
