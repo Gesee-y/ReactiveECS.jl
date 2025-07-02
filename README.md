@@ -11,7 +11,7 @@ A high-performance, modular, event-driven ECS (Entity-Component-System) architec
 
 ## Features
 
-- **Data-oriented ECS** with archetype-based grouping.
+- **Data-oriented ECS** with columnar data storage, entities as row, components as columns.
 - **Reactive dispatch system**: systems only receive relevant entities each frame.
 - **Chunk-based memory layout** for cache efficiency and performance.
 - **Multithreading-ready**: systems can process chunks in parallel.
