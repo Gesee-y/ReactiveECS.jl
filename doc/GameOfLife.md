@@ -1,7 +1,7 @@
 ## Conway's Game of life
 
 The Conway's game of life is a popular game in which cells move, live and die
-On [Rust discourse](https://users.rust-lang.org), a thread named [Please don't put ECS in your game engine](https://users.rust-lang.org/t/please-dont-put-ecs-into-your-game-engine/49305), was about a game developper frustrated by Unity's ECS which refrain him from updating cell's state within the engine's update loop. It was a big turn down for him so he decided to turn to Lua's LOVE, which provide more flexibility.
+On [Rust discourse](https://users.rust-lang.org)'s thread "[Please don't put ECS in your game engine](https://users.rust-lang.org/t/please-dont-put-ecs-into-your-game-engine/49305)" started a game developper, frustrated with Unity's ECS where updating cell's state within the same frame was a nightmare. It was a big turn down for him that he decided to turn back to Lua's LOVE2D, which provide more flexibility.
 
 #### Understanding the ECS Limitation
 
