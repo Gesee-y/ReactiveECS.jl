@@ -6,7 +6,7 @@
 
 export Query, ECSManager
 export @query
-export dispatch_data, register_component!
+export dispatch_data, register_component!, get_component
 
 ######################################################### Core ##########################################################
 
@@ -19,8 +19,8 @@ This represent the result of a query. `masks` is all the mask that represent the
 `partitions` is evry partitions that has matched the query.
 """
 struct Query
-    masks::Vector{UInt64}                   # Bitmasks to match
-    partitions::Vector{WeakRef}     # WeakRefs to the partitions
+    masks::Vector{NTuple{2, UInt128}}         # Bitmasks to match
+    partitions::Vector{WeakRef}               # WeakRefs to the partitions
 end
 
 """
@@ -36,43 +36,23 @@ julia> @query(world, Transform & Physic | Health)
 """
 macro query(world_expr, cond_expr)
     world = esc(world_expr)
-    cond = cond_expr
+    cond = QuoteNode(cond_expr)
 
     quote
         bitpos = $(world).table.columns
-
-        function _to_mask(expr)
-            if expr.head === :symbol
-                return UInt64(1) << bitpos[expr].id
-            elseif expr.head === :call
-                op, args... = expr.args
-                if op === :&
-                    return foldl((a,b) -> a & b, map(_to_mask, args))
-                elseif op === :|
-                    return foldl((a,b) -> a | b, map(_to_mask, args))
-                else
-                    error("Unsupported operator: $op")
-                end
-            else
-                error("Unsupported expression: $expr")
-            end
-        end
-
-        masks = [_to_mask($(QuoteNode(cond)))]
+        mask,exclude = _to_mask(bitpos,$cond)
 
         matching_parts = WeakRef[]
         for (arch_mask, part) in $(world).table.partitions
-            for m in masks
-                if (arch_mask & m) == m  # if the query's mask match the archetype
-                    push!(matching_parts, WeakRef(part))
-                    break
-                end
+            if ((arch_mask & mask) == mask) && (arch_mask & exclude) == arch_mask
+                push!(matching_parts, WeakRef(part))
             end
         end
 
-        Query(masks, matching_parts)
+        Query([(mask, exclude)], matching_parts)
     end
 end
+
 
 """
     struct SysToken
@@ -139,7 +119,7 @@ get_component(ecs::ECSManager, s::Symbol) = begin
     end
 end
 
-Base.iterate(q::Query, i=1) = i > length(q.partitions) ? nothing : (q.partitions[i], i+1)
+Base.iterate(q::Query, i=1) = i > length(q.partitions) ? nothing : (q.partitions[i].value, i+1)
 
 NodeTree.get_children(ecs::ECSManager)::Vector{Int} = get_root(ecs)
 NodeTree.get_root(ecs::ECSManager)::Vector{Int} = getfield(ecs, :root)
@@ -169,3 +149,27 @@ function NodeTree.print_tree(io::IO,ecs::ECSManager;decal=0,mid=1,charset=get_ch
 		print_tree(io,child;decal=decal+1,mid=(decal+1) + Int(i==length(childrens)))
 	end
 end
+
+function _to_mask(bitpos, expr, exclude=typemax(UInt128))
+    if expr isa Symbol
+        return (UInt128(1) << get_id(bitpos[expr]), exclude)
+    elseif expr isa Expr
+        if expr.head === :call
+            op, args... = expr.args
+            if op === :&
+                a,b = _to_mask(bitpos,args[1],exclude), _to_mask(bitpos,args[2],exclude)
+                return (a[1] | b[1], a[2] & b[2])
+            elseif op === :~
+                exclude &= ~_to_mask(bitpos,args[1])[1]
+                return (0, exclude)
+            else
+                error("Unsupported operator in query: $op")
+            end
+        else
+            error("Unsupported expression head: $(expr.head)")
+        end
+    else
+        error("Invalid expression in query: $expr")
+    end
+end
+    
