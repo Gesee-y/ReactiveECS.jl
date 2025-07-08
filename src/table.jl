@@ -1,10 +1,11 @@
 #########################################################################################################################
 ####################################################### TABLE ###########################################################
 #########################################################################################################################
+using BenchmarkTools
 
 ####################################################### Export ##########################################################
 
-export ArchTable, TableColumn
+export ArchTable, TableColumn, TableRange
 export swap!, swap_remove!, get_entity
 
 ######################################################## Core ###########################################################
@@ -33,15 +34,19 @@ struct TableColumn{T}
     data::StructArray{T}
 
     ## Constructor
-    TableColumn(id::Int, s::StructArray{T}) where T = new{T}(id,s)
-    TableColumn{T}(id::Int,::UndefInitializer, n::Integer) where T = new{T}(id,StructArray{T}(undef, n))
+    TableColumn(id::Int, s::StructArray{T}) where {T} = new{T}(id,s)
+    TableColumn{T}(id::Int,::UndefInitializer, n::Integer) where T = TableColumn(id,StructArray{T}(undef, n))
+end
 
+mutable struct TableRange
+	s::Int
+	e::Int
+	size::Int64
 end
 
 mutable struct TablePartition
-	zones::Vector{UnitRange{Int64}}
+	zones::Vector{TableRange}
 	to_fill::Vector{Int}
-	size::Int64
 end
 
 """
@@ -101,18 +106,22 @@ function addrow!(t::ArchTable, data::NamedTuple)
     end
 end
 
-function setrow!(t::ArchTable, i::Int, data::NamedTuple)
+function setrow!(t::ArchTable, i::Int, data)
 	columns::Dict{Symbol, TableColumn} = t.columns
 	key = keys(data)
-	@inbounds for k in key
-		@inline columns[k][i] = data[k]
-    end
+	vals = values(data)
+	@inbounds for j in eachindex(key)
+	    k = key[j]
+	    getfield(columns[k],:data)[i] = vals[j]
+	end
 end
 
-function allocate_entity(t::ArchTable, n::Int, archetype::Integer)
+function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 	partitions = t.partitions
+	intervals = UnitRange{Int64}[]
 	if !haskey(partitions, archetype)
-		partition = TablePartition(UnitRange{Int64}[(t.entity_count+1):(t.entity_count+n)], Int[], n)
+		partition = TablePartition(TableRange[TableRange(t.entity_count+1,t.entity_count+n, n)], 
+			Int[])
     	partitions[archetype] = partition
 
     	resize!(t, length(t.entities)+n)
@@ -122,22 +131,42 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer)
     
 	partition = partitions[archetype]
 	zones = partition.zones
-	size = partition.size
-	to_fill = zones[end][end] - size
+	part_to_fill = partition.to_fill
+    m = n
 
-    if to_fill > 0
-    	push!(partition.to_fill, length(zone))
-    end
+	count = length(part_to_fill)
+
+	while m > 0 && count > 0
+		i = part_to_fill[count]
+		zone = zones[count]
+		size = zone.size
+		to_fill = size - length(zone)
+		v = clamp(m,0,to_fill)
+
+		m >= to_fill && pop!(part_to_fill)
+
+		push!(intervals, zone[end]:(zone[end]+v))
+		zone.e += v
+
+		m -= to_fill
+		count -= 1
+	end
+
+	if m > 0
+		push!(zones, TableRange(t.entity_count+1, t.entity_count+m+offset, m+offset))
+		push!(part_to_fill, length(zones))
+	end
 
     resize!(t, length(t.entities)+n)
-    push!(zones, (t.entity_count+1):(t.entity_count+n))
+
+    return intervals
 end
 
 # Create a new partition with no entity
 function createpartition(t::ArchTable, archetype::Integer, size=DEFAULT_PARTITION_SIZE)
 	partitions = t.partitions
 	if !haskey(partitions, archetype)
-		partition = TablePartition(UnitRange{Int64}[(t.entity_count+1):(t.entity_count)], Int[], size)
+		partition = TablePartition(TableRange[TableRange(t.entity_count+1,t.entity_count, size)], Int[])
     	partitions[archetype] = partition
     	push!(partition.to_fill, 1)
 
@@ -147,26 +176,25 @@ function createpartition(t::ArchTable, archetype::Integer, size=DEFAULT_PARTITIO
 end
 
 ## This will panic if there is no partitions matching that archetype
-function addtopartition(t::ArchTable{T}, archetype::Integer) where T
+function addtopartition(t::ArchTable{T}, archetype::Integer, size=DEFAULT_PARTITION_SIZE) where T
 	partitions = t.partitions
     partition = partitions[archetype]
     
-    zones::Vector{UnitRange{Int64}} = partition.zones
+    zones::Vector{TableRange} = partition.zones
     zone = zones[end]
-    size = partition.size
     to_fill::Vector{Int} = partition.to_fill
     id = t.entity_count+1
 
     if !isempty(to_fill)
     	fill_id = to_fill[end]
     	zone = zones[fill_id]
-    	zones[fill_id] = length(zone) == 0 ? (id:id) : _add_zone(zone,1)
-    	id = zones[fill_id][end]
+    	zone.e += 1
+    	id = zone[end]
         
         # if we fulfilled a zone, we remove if from the zone to fill
     	id >= size && pop!(to_fill)
     else
-    	push!(zones, (id):(id))
+    	push!(zones, TableRange(id,id,size))
     	push!(to_fill, length(zones))
     	resize!(t, id+size-1)
     end
@@ -203,28 +231,34 @@ function swap_remove!(t::ArchTable, e::Entity)
 		j = zones[fill_id][end]
 
 		if i == j
-			zones[fill_id] -= 1
+			zones[fill_id].e -= 1
 		    entities[i] = nothing
 		else
-
-		    entities[j], entities[i] = nothing, entities[j]
-		    e.id, entities[i].id = j, i
-		
-		    swap!(t, i, j; fields=e.components)
+			if !isdefined(entities, j)
+				entities[i] = Entity(i, e.archetype, e.components, e.world, -1, Int[])
+				entities[j] = nothing
+		    else
+			    entities[j], entities[i] = nothing, entities[j]
+			    e.ID, entities[i].ID = j, i
+			
+			    swap!(t, i, j; fields=e.components)
+		    end
 		end
-
-		zones[fill_id] = _add_zone(zones[fill_id],1)
 
 		if length(zones[fill_id]) < 1
 			pop!(zones)
 			pop!(to_fill)
 		end
 	else
-		partition.zones[end] = _add_zone(partition.zones[end], -1)
+		partition.zones[end].s -= 1
 		entities[i] = nothing
 		push(to_fill, length(partition.zones))
 	end
 
+	for c in get_children(e)
+		child =  entities[c]
+		child != nothing && swap_remove!(t, child)
+    end
 end
 
 function swap!(t::ArchTable, i::Int, j::Int; fields=())
@@ -232,6 +266,11 @@ function swap!(t::ArchTable, i::Int, j::Int; fields=())
     	arch = t.columns[f]
     	swap!(arch, i, j)
     end
+end
+function swap!(t::ArchTable, e1::Entity, e2::Entity)
+	i, j = get_id(e1), get_id(e2)
+	swap!(t, i, j, fields=e.components)
+	e1.ID, e2.ID = j, i
 end
 @generated function swap!(arch::TableColumn{T}, i::Int, j::Int) where T
     fields=fieldnames(T)
@@ -244,6 +283,38 @@ end
     end
 
     return expr
+end
+
+function change_archetype(t::ArchTable, e::Entity, archetype::Integer)
+    partition = t.partitions[e.archetype]
+    new_partition = t.partitions[archetype]
+	new_to_fill = new_partition.to_fill
+	new_zones = new_partition.zones 
+    to_fill = partition.to_fill
+	entities = t.entities
+	zones = partition.zones
+
+	i = get_id(e)
+
+    zone = zones[end]
+	j = zone[end]
+	swap!(t,e,entities[j])
+	zone.e -= 1
+	
+	if !isempty(new_to_fill)
+		fill_id = to_fill[end]
+		new_zone = new_zones[fill_id]
+		id = new_zone[end] +1
+		new_zone.e += 1
+		e.ID = id
+		swap!(t,i,id;fields=e.components)
+	else
+		e.ID = t.entity_count+1
+		push!(new_zones, TableRange(t.entity_count+1, t.entity_count+1, DEFAULT_PARTITION_SIZE))
+		swap!(t,i,t.entity_count+1)
+		
+		push(new_to_fill, length(new_zones))
+	end
 end
 
 function get_entity(r::EntityRange, i::Integer)
@@ -263,6 +334,13 @@ function get_entity(r::EntityRange, i::Integer)
     end
 	return world.table.entities[r.s+i]
 end
+
+Base.length(t::TableRange) = clamp(t.e - t.s,0,t.size)
+Base.firstindex(t::TableRange) = t.s
+Base.lastindex(t::TableRange) = t.e
+Base.getindex(t::TableRange,i::Int) = 0 <= i <= length(t)+1 ? t.s+i-1 : throw(BoundsError(t,i))
+Base.in(t::TableRange, i::Int) = t.s <= i <= t.e
+Base.in(t::TableRange, e::Entity) = get_id(e) in t
 
 #################################################### Helpers ###########################################################
 _print(f, io::IO, v::TableColumn) = f(io, getfield(v, :data))

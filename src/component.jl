@@ -55,6 +55,7 @@ end
 
 to_symbol(T::Type{<:AbstractComponent}) = error("to_symbol not defined for type $T.")
 to_symbol(s::Symbol) = s
+to_symbol(c::T) where T <: AbstractComponent = to_symbol(T)
 
 """
     get_bits(table::ArchTable{T}, s::Symbol)

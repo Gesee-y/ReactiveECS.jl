@@ -172,4 +172,4 @@ function _to_mask(bitpos, expr, exclude=typemax(UInt128))
         error("Invalid expression in query: $expr")
     end
 end
-    
+

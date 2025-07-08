@@ -10,7 +10,7 @@ export get_id
 ######################################################## Core ###########################################################
 
 """
-    struct Entity
+    mutable struct Entity
 		ID::UInt
 		archetype::UInt
 		components::Tuple
