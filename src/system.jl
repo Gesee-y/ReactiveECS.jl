@@ -1,6 +1,10 @@
-##################################################################################################################
-###################################################   SYSTEM   ###################################################
-##################################################################################################################
+#########################################################################################################################
+######################################################## SYSTEM #########################################################
+#########################################################################################################################
+
+######################################################## Export #########################################################
+
+######################################################### Core ##########################################################
 
 export @system
 export subscribe!, unsubscribe!, listen_to, get_into_flow
@@ -30,15 +34,13 @@ macro system(name)
 		mutable struct $name <: AbstractSystem
 			active::Bool
 			flow::Channel
-			archetype::BitType
-			position::Int
 			ecs::WeakRef
 			children::Vector{AbstractSystem}
 			logdata::$logname
 			
 			## Constructors
 
-			$name() = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[], $logname())
+			$name() = new(true,Channel(SYS_CHANNEL_SIZE), WeakRef(nothing), AbstractSystem[], $logname())
 		end
 	end
 end
@@ -49,15 +51,13 @@ macro system(name, block)
 		mutable struct $name <: AbstractSystem
 			active::Bool
 			flow::Channel
-			archetype::BitType
-			position::Int
 			ecs::WeakRef
 			children::Vector{AbstractSystem}
 			logdata::$logname
 			
 			## Constructors
 
-			$name(args...) = new(true,Channel(SYS_CHANNEL_SIZE), init(BitType), 0, WeakRef(nothing), AbstractSystem[], $logname(), args...)
+			$name(args...) = new(true,Channel(SYS_CHANNEL_SIZE), WeakRef(nothing), AbstractSystem[], $logname(), args...)
 		end
 	end
 
@@ -71,13 +71,13 @@ end
 ############################################### System Management ################################################
 
 """
-    run!(sys::T, data) where T <: AbstractSystem
+    run!(world, sys::T, data) where T <: AbstractSystem
 
 This function should be overloaded for every system. It's the task they will execute
 If the system have subscribed to the manager, `data` will be a tuple, were the 1st is a weak references to the data
 and the 2nd is a weak references to the indices of the entities requested by the system
 """
-run!(sys::T, batch) where T <: AbstractSystem = error("run! is not defined for the system of type $T")
+run!(world, sys::T, batch) where T <: AbstractSystem = error("run! is not defined for the system of type $T")
 
 function run_system!(@nospecialize(system::AbstractSystem))
     
@@ -214,36 +214,10 @@ end
 This function makes the system subscribe to a set of archetype.
 `component` is a tupe of type, each type is a component's type
 """
-function subscribe!(ecs::ECSManager, system::AbstractSystem, components::Tuple)
+function subscribe!(ecs::ECSManager, system::AbstractSystem, q::Query)
 	
 	# If the is not system with a subscription to the given archetype
-	archetype = get_bits(BitType,components)
-	
-	if !haskey(ecs.archetypes, archetype)
-
-		# Setting some little hooks
-		system.archetype = archetype
-		system.position = 1
-		indices = Int[]
-
-		# Creating the new data for the archetype
-		archetype_data = ArchetypeData(indices, Dict{Int, Int}(), AbstractSystem[system])
-		ecs.archetypes[archetype] = archetype_data
-
-		# We will now put all the entities matching that archetype in indices
-		for entity in ecs.entities
-			if _match_archetype(entity, archetype)
-				id = get_id(entity)
-				push!(indices, id)
-				archetype_data.positions[id] = length(indices)-1
-			end
-		end
-	else
-		systems = get_systems(ecs.archetypes[archetype])
-		push!(systems, system)
-		system.position = length(systems)
-	end
-
+	ecs.queries[system] = q
 	system.ecs = WeakRef(ecs)
 
 	return nothing
@@ -255,7 +229,7 @@ end
 This function will make a system stop waiting for data from a given archetype
 """
 function unsubscribe!(ecs::ECSManager, system::AbstractSystem)
-	deleteat!(get_systems(ecs.archetypes[system.archetype]), system.position)
+	delete!(ecs.queries, system)
 end
 
 Base.println(io::IO, sys::AbstractSystem) = _print(println, io, sys)

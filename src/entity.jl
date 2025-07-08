@@ -1,70 +1,93 @@
-##################################################################################################################
-###################################################   ENTITY   ###################################################
-##################################################################################################################
+#########################################################################################################################
+###################################################### ENTITY ###########################################################
+#########################################################################################################################
 
-
-
-#################################################### Exports #####################################################
+###################################################### Exports ##########################################################
 
 export Entity
-export get_id, get_positions, get_position, get_component
+export get_id
 
-###################################################### Core ######################################################
+######################################################## Core ###########################################################
 
 """
-    struct Entity
-		id::Int
-		positions::Dict{BitType,Int}
+    mutable struct Entity
+		ID::UInt
+		archetype::UInt
+		components::Tuple
 		world::WeakRef
-		components::NamedTuple
+		parent::UInt
+		children::Vector{UInt}
 
-This struct represent an entity for the ECS. An entity is just an `id`, which is his position in the global data
-the `positions` field is the index of the entity in the different archtype group.
+This struct represent an entity for the ECS. An entity is just an `ID`, which is his position in the global data
+`archetype` is the set of components the entity possess.
+`components` is the name of the components that the entity have.
 `world` is a weak reference to the manager object.
+`parent` is the ID of the parent entity.
+`children` is the list of children of the entity.
 """
 mutable struct Entity
-	const id::Int # This will help us when we will free entity, this id will be marked as available
-	const world::WeakRef # Avoid us the need to always pass the manager around
-	components::Tuple # Contain the components's type of the entity
+	ID::Int
+	archetype::UInt128
+	components::Tuple
+	world::WeakRef
 	parent::Int
-	children::Vector{Int}
-	## Constructor
-
-	Entity(id::Int, world, components; parent=-1) = new(id, WeakRef(world), components, parent, Int[])
+	children::Vector{UInt}
 end
 
-mutable struct EntityInterval
-	id::Int
-	num::Int
-	archetypes::Tuple
-end
+##################################################### Operations ########################################################
 
 """
-    struct ComponentWrapper
-		id::Int
-		data::WeakRef
-		obj::Symbol
+    get_tree(e::Entity)
 
-This struct serve to return you the correct component when you request it with get or set property
+This return the tree the entity belongs to.
+If the entity has not been added yet to the ECSManager, it will return nothing
 """
-struct ComponentWrapper
-	id::Int
-	data::VirtualStructArray
-end
-############################################### Accessor functions ################################################
-
-# We start by overloading the NodeTree interface
-
 NodeTree.get_tree(e::Entity) = e.world.value
+
+"""
+    get_root(e::Entity)
+
+Return a vector of the entites at the root of the tree of the entity `e`.
+Throws an error if the entity hasn't been added to the ECSManager yet.
+"""
 NodeTree.get_root(e::Entity)::Vector{Int} = !isnothing(e.world.value) ? get_root(get_tree(e)) : error("The entity hasn't been added to the manager yet.")
+
+"""
+    add_child(e::Entity, e2::Entity)
+
+Add the entity `e2` as the child of the entity `e`.
+An entity can only have one parent, if the entity `e2` already has a parent, nothing will happen.
+"""
 NodeTree.add_child(e::Entity, e2::Entity) = begin
-    push!(get_children(e), get_id(e2))
-    e2.parent = get_id(e)
+    
+    # If e2's parent ID is less than one, then he don't have a parent yet
+    if e2.parent < 1
+	    push!(get_children(e), get_id(e2))
+	    e2.parent = get_id(e)
+	end
 end
+
+"""
+    remove_child(e::Entity, e2::Entity)
+
+Remove the entity `e2` from the children of `e`.
+The entity can then be the child of any other node.
+
+    remove_child(e::Entity, i::Int)
+
+Remove the i-th child of `e`.
+Throws an error if `i` exceed the number of childre of `e`.
+    
+    remove_child(children::Vector{Int}, e2::Entity)
+
+Remove the `ID` of the entity `e` from the vector `children`. 
+"""
 NodeTree.remove_child(e::Entity, e2::Entity) = begin
     children = get_children(e)
     id = get_id(e2)
-    for i in eachindex(children)
+    @inbounds for i in eachindex(children)
+    	
+    	# The children matching the id of e2 will get removed
     	if children[i] == id
     		children[i] = pop!(children)
     		return
@@ -84,122 +107,25 @@ NodeTree.remove_child(e::Entity, i::Int) = begin
     children = get_children(e)
     children[i] = pop!(children)
 end
-NodeTree.get_children(e::Entity)::Vector{Int} = getfield(e, :children)
-NodeTree.get_nodeidx(e::Entity)::Int = get_id(e)
-
-function NodeTree.print_tree(io::IO,n::Entity;decal=0,mid=1,charset=get_charset())
-	childrens = get_children(n)
-	tree = get_tree(n)
-
-	print(typeof(n)," : ")
-	print(nvalue(n))
-
-	for i in eachindex(childrens)
-		println()
-		child = get_node(tree,childrens[i])
-
-		for i in 1:decal+1
-			i > mid && print(charset.midpoint)
-			print(charset.indent)
-		end
-
-		if i < length(childrens) && !(decal-1>0)
-			print(charset.branch)
-		elseif !(decal-1>0)
-			print(charset.terminator)
-		end
-		print(io,charset.link)
-
-		print_tree(io,child;decal=decal+1,mid=(decal+1) + Int(i==length(childrens)))
-	end
-end
-
-Base.getproperty(e::Entity,s::Symbol) = s in fieldnames(Entity) ? getfield(e, s) : get_component(e, s)
-function Base.setproperty!(e::Entity,s::Symbol,v)
-	world = e.world.value 
-    if world != nothing
-    	data = get_component(world, s)
-    	data.dirty[id] = true
-        id = get_id(e)
-    	data[id] = v
-    else
-    	error("The entity hasn't been added to the manager yet.")
-    end
-end
-
-function Base.getproperty(c::ComponentWrapper, s::Symbol)
-	data = getfield(c,:data)
-	id = getfield(c,:id)
-	return getproperty(data, s)[id]
-end
-function Base.setproperty!(c::ComponentWrapper, s::Symbol,v)
-	data = getfield(c,:data)
-	id = getfield(c,:id)
-	data.dirty[id] = true
-	getproperty(data, s)[id] = v
-end
-
-@generated function Base.getindex(c::ComponentWrapper, s::Symbol)
-	println(c.parameters)
-	params = c.parameters[3].parameters
-	key = params[1]
-	types = params[2].parameters
-	types_tuple = NamedTuple{key}(types)
-    
-    return quote
-    	id = getfield(c, :id)
-		data::getproperty($types_tuple, s) = getproperty(getfield(c,:data), s)
-		data[id]
-	end
-end
-function Base.setproperty!(c::ComponentWrapper, v, s::Symbol)
-	data = getfield(c,:data)
-	id = getfield(c,:id)
-
-	getproperty(data, s)[id] = v
-end 
-
-#Base.setproperty!(e::Entity,s::Symbol) = ComponentWrapper(get_id(e), WeakRef(e.world.value.world_data), s, v)
-#@generated Base.setproperty!(c::ComponentWrapper,v, s::Symbol) = :(getfield(c,:data).value[getfield(c,obj)].s[getfield(c,:id)] = getfield(c,:v))
 
 """
-    get_world()
+    get_children(e::Entity)
 
-This function returns the current world. It should be overrided to return you ECSManager
+Return a vector of ints, corresponding to the index of the entities children of `e`.
 """
-get_world() = error("The World hasn't been defined yet.")
+NodeTree.get_children(e::Entity) = getfield(e, :children)
+
+"""
+    get_nodeidx(e::Entity)
+
+Return the index of the entity in the list of entities.
+Behave exactly as `get_id`.
+"""
+NodeTree.get_nodeidx(e::Entity) = get_id(e)
 
 """
     get_id(e::Entity)
 
 Return the `id` of the entity, i.e its position in the global data
 """
-@inline get_id(e::Entity)::Int = getfield(e, :id)
-
-"""
-    get_positions(e::Entity)::Dict{BitType,Int}
-
-This function returns the dict of positions of the entity, which contains the index of the entity in each archetype
-"""
-@inline get_positions(e::Entity)::Dict{BitType,Int} = getfield(e, :position)
-
-"""
-    get_position(e::Entity, archetype::BitType)::Int
-
-This function returns the position of a entity in an `archetype`
-"""
-@inline get_position(e::Entity, archetype::BitType)::Int = get_positions(e)[archetype]
-
-get_component(e::Entity, s::Symbol) = begin
-    world = e.world.value 
-    if world != nothing
-    	data = get_component(world, s)
-    	return ComponentWrapper(get_id(e), data)
-    else
-    	error("The entity hasn't been added to the manager yet.")
-    end
-end
-Base.show(io::IO, e::Entity) = show(io, "Entity $(get_id(e))")
-Base.show(e::Entity) = show(stdout, e)
-
-############################################################ Helpers ##############################################################
+@inline get_id(e::Entity) = getfield(e, :ID)

@@ -1,76 +1,87 @@
-##################################################################################################################
-##################################################   MANAGER   ###################################################
-##################################################################################################################
+#########################################################################################################################
+####################################################### MANAGER #########################################################
+#########################################################################################################################
 
-export ECSManager, SysReady
-export dispatch_data, blocker, get_indices, gettree
+######################################################## Export #########################################################
 
-###################################################### Core ######################################################
+export Query, ECSManager
+export @query
+export dispatch_data, register_component!, get_component
+
+######################################################### Core ##########################################################
 
 """
-    mutable struct WorldData
-	    data::Dict{Type, StructArray}
+    struct Query
+	    masks::Vector{UInt64}
+	    partitions::Vector{TablePartitions}
 
-Contains all the world data.
+This represent the result of a query. `masks` is all the mask that represent the query.
+`partitions` is evry partitions that has matched the query.
 """
-mutable struct WorldData
-	data::Dict{Symbol, VirtualStructArray}
-	L::Int
-
-	## Constructor
-
-	WorldData() = new(Dict{Symbol, VirtualStructArray}(), 0)
+struct Query
+    masks::Vector{NTuple{2, UInt128}}         # Bitmasks to match
+    partitions::Vector{WeakRef}               # WeakRefs to the partitions
 end
 
-struct ArchetypeData
-	data::Vector{Int}
-	positions::Dict{Int, Int}
-	systems::Vector{AbstractSystem}
+"""
+    @query(world, query_expr)
+
+This search every partition in `world` that match the condition `query_expr`.
+
+## Example
+
+```julia
+
+julia> @query(world, Transform & Physic | Health)
+"""
+macro query(world_expr, cond_expr)
+    world = esc(world_expr)
+    cond = QuoteNode(cond_expr)
+
+    quote
+        bitpos = $(world).table.columns
+        mask,exclude = _to_mask(bitpos,$cond)
+
+        matching_parts = WeakRef[]
+        for (arch_mask, part) in $(world).table.partitions
+            if ((arch_mask & mask) == mask) && (arch_mask & exclude) == arch_mask
+                push!(matching_parts, WeakRef(part))
+            end
+        end
+
+        Query([(mask, exclude)], matching_parts)
+    end
 end
 
-struct Queue
-	add_queue::Vector{Entity}
-	deletion_queue::Vector{Entity}
-	data::Dict{Symbol,Vector{AbstractComponent}}
 
-	## Constructors
+"""
+    struct SysToken
 
-	Queue() = new(Entity[], Entity[], Dict{Symbol,Vector{AbstractComponent}}())
-end
+When a system will be launched, he will have this as third argument.
+So that it doesn't interfer with other possible type you would like to pass to your systems
+"""
+struct SysToken end
 
 mutable struct ECSManager
 	entities::Vector{Optional{Entity}}
-	world_data::WorldData # Contain all the data
+	table::ArchTable # Contain all the data
 	root::Vector{Int}
-	archetypes::Dict{BitType, ArchetypeData}
+	queries::Dict{AbstractSystem, Query}
 	logger::LogTracer
-	free_indices::Vector{Int}
-	queue::Queue
 	blocker::Channel{Int}
 	sys_count::Atomic{Int}
 	sys_done::Atomic{Int}
 
 	## Constructor
 
-	ECSManager() = new(Vector{Optional{Entity}}(), WorldData(), Int[], Dict{BitVector, ArchetypeData}(),
-		LogTracer(), Int[], Queue(), Channel{Int}(2), Atomic{Int}(0), Atomic{Int}(0))
+	ECSManager() = new(Vector{Optional{Entity}}(), ArchTable{UInt128}(), Int[], Dict{AbstractSystem, Query}(),
+		LogTracer(), Channel{Int}(2), Atomic{Int}(0), Atomic{Int}(0))
 end
 
-struct QueryResult
-	world::WeakRef
-	sys::WeakRef
-end
 
 ################################################### Functions ###################################################
 
 get_id(ecs::ECSManager) = -1
-NodeTree.get_children(ecs::ECSManager)::Vector{Int} = get_root(ecs)
-NodeTree.get_root(ecs::ECSManager)::Vector{Int} = getfield(ecs, :root)
-NodeTree.add_child(ecs::ECSManager, e::Entity) = push!(get_root(ecs), get_id(e))
-NodeTree.get_node(ecs::ECSManager, i::Int) = i > 0 ? ecs.entities[i] : ecs.root
-
-get_indices(ecs::ECSManager, archetype::BitType) = ecs.archetypes[archetype].data
-get_indices(ecs::ECSManager, sys::AbstractSystem) = ecs.archetypes[sys.archetype].data
 
 """
     dispatch_data(ecs)
@@ -79,15 +90,8 @@ This function will distribute data to the systems given the archetype they have 
 """
 function dispatch_data(ecs::ECSManager)
 
-	for archetype in values(ecs.archetypes)
-		systems = get_systems(archetype)
-		indices = get_data(archetype)
-		isempty(indices) && continue
-
-        ind = WeakRef(indices)
-        for system in systems
-		    put!(system.flow, ind)
-		end
+	for (system, query) in values(ecs.archetypes)
+	    put!(system.flow, query)
 	end
 end
 
@@ -99,13 +103,15 @@ This function returns the ECSManager's blocker, which can be used with wait in o
 blocker(ecs::ECSManager) = take!(getfield(ecs, :blocker))
 blocker(v::Vector{Task}) = fetch.(v)
 
+register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = register_component!(ecs.table, T)
+
 """
     get_component(ecs::ECSManager, s::Symbol)
 
 This returns the SoA of a component of name `s`.
 """
 get_component(ecs::ECSManager, s::Symbol) = begin 
-    w::Dict{Symbol, VirtualStructArray} = ecs.world_data.data
+    w::Dict{Symbol, TableColumn} = ecs.table.columns
     if haskey(w, s)
     	return w[s]
     else
@@ -113,109 +119,12 @@ get_component(ecs::ECSManager, s::Symbol) = begin
     end
 end
 
-function Base.resize!(world_data::WorldData, n::Int)
-	for data in values(world_data.data)
-		resize!(getdata(data), n)
-	end
+Base.iterate(q::Query, i=1) = i > length(q.partitions) ? nothing : (q.partitions[i].value, i+1)
 
-	world_data.L = n
-end
-
-@inline Base.length(w::WorldData)::Int = getfield(w, :L)
-Base.@propagate_inbounds function Base.push!(ecs::ECSManager, entity::Entity, data)
-	
-	w = ecs.world_data
-	L = length(w)
-	idx = get_id(entity)
-
-    # If the index exceed the length of the data, we resize all the components
-	if idx > L
-		resize!(w, L+1)
-		push!(ecs.entities, entity)
-		L += 1
-	else
-		ecs.entities[idx] = entity
-	end
-    
-	for key in keys(data)
-		elt = data[key]
-
-		# If the component is already in our global data
-		if haskey(w.data, key)
-		    w.data[key][idx] = data[key]
-		# else we create a new SoA for that component and we resize it to match the other components
-		else
-			w.data[key] = VirtualStructArray(StructArray{typeof(elt)}(undef, L))
-			w.data[key][idx] = elt
-        end
-	end
-end
-
-Base.@propagate_inbounds function Base.append!(ecs::ECSManager, entities::Vector{Entity}, data::Dict)
-
-	w = ecs.world_data
-	struct_data = getdata(w.data)
-	L = length(w)
-	add = length(entities)
-
-    # If the index exceed the length of the data, we resize all the components
-	if add > 0
-		for key in keys(data)
-			elt = data[key]
-
-			# If the component is already in our global data
-			if haskey(struct_data, key)
-			    append!(struct_data[key], elt)
-			# else we create a new SoA for that component and we resize it to match the other components
-			else
-				struct_data[key] = StructArray{typeof(elt[1])}(undef, 0)
-				append!(struct_data[key], elt)
-	        end
-		end
-		resize!(w, L+add)
-		append!(ecs.entities, entities)
-		L += add
-	end
-end
-
-@inline get_free_indices(ecs::ECSManager)::Vector{Int} = getfield(ecs,:free_indices)
-get_only_free_indice(ecs::ECSManager)::Int = begin
-	indices = get_free_indices(ecs)
-	return isempty(indices) ? 0 : pop!(indices)
-end
-function get_free_indice(ecs::ECSManager)::Int
-    free_indices = get_free_indices(ecs)
-
-    if !isempty(free_indices)
-		return pop!(get_free_indices(ecs))
-	else
-		return length(ecs.world_data) + 1
-	end
-end
-
-add_to_free_indices(ecs::ECSManager, i::Int) = begin
-	push!(get_free_indices(ecs), i)
-	ecs.entities[i] = nothing
-end
-
-@inline get_data(a::ArchetypeData) = getfield(a, :data)
-@inline get_systems(a::ArchetypeData) = getfield(a, :systems)
-
-add_to_addqueue(ecs::ECSManager, e::Entity, data::NamedTuple) = begin
-    push!(ecs.queue.add_queue, e)
-    for key in keys(data)
-    	elt = data[key]
-    	data_queue = ecs.queue.data
-    	haskey(data_queue, key) ? push!(data_queue[key], elt) : (data_queue[key] = typeof(elt)[elt])
-    	push!(data_queue[key], elt)
-    end
-end
-
-add_to_delqueue(ecs::ECSManager, e::Entity) = push!(ecs.queue.deletion_queue, e)
-
-Base.getindex(ecs::ECSManager, sys::AbstractSystem) = QueryResult(WeakRef(ecs), WeakRef(sys))
-Base.getproperty(q::QueryResult, s::Symbol) = get_component(getfield(q, :world).value, s)
-
+NodeTree.get_children(ecs::ECSManager)::Vector{Int} = get_root(ecs)
+NodeTree.get_root(ecs::ECSManager)::Vector{Int} = getfield(ecs, :root)
+NodeTree.add_child(ecs::ECSManager, e::Entity) = push!(get_root(ecs), get_id(e))
+NodeTree.get_node(ecs::ECSManager, i::Int) = i > 0 ? ecs.entities[i] : ecs.root
 function NodeTree.print_tree(io::IO,ecs::ECSManager;decal=0,mid=1,charset=get_charset())
 	childrens = get_children(ecs)
 
@@ -241,6 +150,26 @@ function NodeTree.print_tree(io::IO,ecs::ECSManager;decal=0,mid=1,charset=get_ch
 	end
 end
 
-#################################################### Helpers ####################################################
+function _to_mask(bitpos, expr, exclude=typemax(UInt128))
+    if expr isa Symbol
+        return (UInt128(1) << get_id(bitpos[expr]), exclude)
+    elseif expr isa Expr
+        if expr.head === :call
+            op, args... = expr.args
+            if op === :&
+                a,b = _to_mask(bitpos,args[1],exclude), _to_mask(bitpos,args[2],exclude)
+                return (a[1] | b[1], a[2] & b[2])
+            elseif op === :~
+                exclude &= ~_to_mask(bitpos,args[1])[1]
+                return (0, exclude)
+            else
+                error("Unsupported operator in query: $op")
+            end
+        else
+            error("Unsupported expression head: $(expr.head)")
+        end
+    else
+        error("Invalid expression in query: $expr")
+    end
+end
 
-_generate_name() = Symbol("Struct"*string(time_ns()))
