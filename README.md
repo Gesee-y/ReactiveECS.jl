@@ -43,6 +43,7 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 * `Component`: any struct implementing `AbstractComponent`.
 * `System`: a process that subscribes to an archetype and operates on matching entities.
 * `ECSManager`: the central controller that stores entities, handles subscriptions, and dispatches entity batches to systems.
+* `Partitions`: Range of entity with the same components combination.
 
 For a detailled analysis check the [architecture](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md)
 
