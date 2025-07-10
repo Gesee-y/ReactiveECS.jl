@@ -15,23 +15,17 @@ export get_id
 		archetype::UInt
 		components::Tuple
 		world::WeakRef
-		parent::UInt
-		children::Vector{UInt}
 
 This struct represent an entity for the ECS. An entity is just an `ID`, which is his position in the global data
 `archetype` is the set of components the entity possess.
 `components` is the name of the components that the entity have.
 `world` is a weak reference to the manager object.
-`parent` is the ID of the parent entity.
-`children` is the list of children of the entity.
 """
 mutable struct Entity
 	ID::Int
 	archetype::UInt128
 	components::Tuple
 	world::WeakRef
-	parent::Int
-	children::Vector{UInt}
 end
 
 ##################################################### Operations ########################################################

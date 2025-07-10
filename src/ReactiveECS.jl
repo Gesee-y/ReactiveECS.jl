@@ -2,6 +2,7 @@ module ReactiveECS
 
 using Reexport
 using StructArrays
+using OrderedCollections
 
 include(joinpath("NodeTree.jl", "src", "NodeTree.jl"))
 include(joinpath("Notifyers.jl", "src", "Notifyers.jl"))
@@ -9,6 +10,8 @@ include(joinpath("Notifyers.jl", "src", "Notifyers.jl"))
 @reexport using .NodeTree
 @reexport using .Notifyers
 using .Threads
+
+export AbstractComponent, AbstractSystem
 
 include(joinpath("LogTrace.jl", "src", "LogTrace.jl"))
 

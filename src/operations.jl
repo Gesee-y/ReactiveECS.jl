@@ -29,7 +29,7 @@ function create_entity!(ecs::ECSManager, comp::NamedTuple; parent=ecs, size=DEFA
 	!haskey(partitions, signature) && createpartition(table, signature, size)
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
-	entity = Entity(id, signature, key, WeakRef(ecs), get_id(parent), UInt[])
+	entity = Entity(id, signature, key, WeakRef(ecs))
 	setrow!(table, id, comp) # We then initialize the components
 
 	table.entities[id] = entity
@@ -46,11 +46,12 @@ function create_entity!(ecs::ECSManager, key::Tuple; parent=ecs, size=DEFAULT_PA
 	!haskey(partitions, signature) && createpartition(table, signature, size)
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
-	entity = Entity(id, signature, key, WeakRef(ecs), get_id(parent), UInt[])
+	entity = Entity(id, signature, key, WeakRef(ecs))
 	table.entities[id] = entity
 
 	return entity
 end
+create_entity!(ecs::ECSManager; kwargs...) = create_entity!(ecs, NamedTuple(kwargs))
 
 """
     request_entity!(ecs::ECSManager, comp::NamedTuple, count::Int; parent=ecs)
@@ -82,7 +83,7 @@ function request_entity!(ecs::ECSManager, comp::NamedTuple, count::Int; parent=e
     	setrow!(table, i, comp)
     end
 
-    r = EntityRange(s,e,0,ref,key,parent_id,signature)
+    r = EntityRange(s,e,0,ref,key,signature)
 	return r
 end
 function request_entity!(ecs::ECSManager, key::Tuple, count::Int; parent=ecs)
@@ -101,12 +102,42 @@ function request_entity!(ecs::ECSManager, key::Tuple, count::Int; parent=ecs)
 	return r
 end
 
+"""
+    remove_entity!(ecs::ECSManager, e::Entity)
+
+This remove an entity from the world.
+"""
 function remove_entity!(ecs::ECSManager, e::Entity)
 	table = ecs.table
 	swap_remove!(table, e)
 	e.world = WeakRef()
 end
 
-function attach_component()
-	
+"""
+
+"""
+function attach_component(ecs::ECSManager, e::Entity, c::AbstractComponent)
+	table = ecs.table
+	symb = to_symbol(c)
+	if !(symb in e.components)
+		symb = to_symbol(c)
+		comp = (e.components..., symb)
+		signature = e.archetype | get_bits(table, symb)
+		change_archetype(table, e, signature)
+		setrow!(table, get_id(e), c)
+		e.components = comp
+		e.signature = signature
+	end
+end
+
+function detach_component(ecs::ECSManager, e::Entity, T::Type)
+	table = ecs.table
+	symb = to_symbol(c)
+	if symb in e.components
+		comp = filter(c -> c != symb, e.components)
+		signature = e.archetype & get_bits(table, symb)
+		e.components = comp
+		change_archetype(table, e, signature)
+		e.signature = signature
+	end
 end
