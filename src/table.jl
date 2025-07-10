@@ -6,7 +6,7 @@ using BenchmarkTools
 ####################################################### Export ##########################################################
 
 export ArchTable, TableColumn, TableRange, TablePartition
-export swap!, swap_remove!, get_entity, get_range
+export swap!, swap_remove!, get_entity, get_range, getdata
 
 ######################################################## Core ###########################################################
 

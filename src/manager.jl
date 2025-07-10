@@ -5,7 +5,7 @@
 ######################################################## Export #########################################################
 
 export Query, ECSManager, SysToken
-export @query
+export @query, @foreachrange
 export dispatch_data, register_component!, get_component, blocker
 
 ######################################################### Core ##########################################################
@@ -32,7 +32,7 @@ This search every partition in `world` that match the condition `query_expr`.
 
 ```julia
 
-julia> @query(world, Transform & Physic | Health)
+julia> @query(world, Transform & Physic & ~Health)
 """
 macro query(world_expr, cond_expr)
     world = esc(world_expr)
@@ -53,6 +53,19 @@ macro query(world_expr, cond_expr)
     end
 end
 
+macro foreachrange(query, body)
+    return esc(quote
+        for partition in $query
+            zones::Vector{TableRange} = partition.zones
+
+            for zone in zones
+                range = get_range(zone)
+
+                $body
+            end
+        end
+    end)
+end
 
 """
     struct SysToken

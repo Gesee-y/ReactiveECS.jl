@@ -46,7 +46,7 @@ macro component(name, block)
 				f = QuoteNode(field)
 				type = fieldtype($struct_name, field)
 				eval(:(get_field(st::TableColumn{$T},
-					::Val{$f})::Vector{$type} = getproperty(getdata(st), ($f))
+					::Val{$f})::Vector{$type} = getproperty(getfield(st, :data), ($f))
 				))
 		    end
         end
