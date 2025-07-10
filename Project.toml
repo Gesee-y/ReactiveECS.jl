@@ -1,14 +1,9 @@
 name = "ReactiveECS"
-uuid = "98e33af6-2ee5-5afd-9e75-cbc738b765c9"
-repo = "https://github.com/Gesee-y/ReactiveECS.jl.git"
-version = "1.0.1"
+uuid = "89201da4-faab-4b94-8d18-ea411dbf4a40"
+authors = ["Kaptue Talom Lael <gesee37@gmail.com>"]
+version = "0.1.0"
 
 [deps]
-Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-
-[compat]
-OrderedCollections = "1.8.1"
-StructArrays = "0.7.1"
-julia = "1.10.1"
