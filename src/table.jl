@@ -43,6 +43,7 @@ end
     struct TableColumn{T}
     	id::Int
     	data::StructArray{T}
+    	locks::HierarchicalLock{T}
 
 This represent a column of the table. A column is in a fact a Struct of array where each field is a vector where each
 index is an entity.
@@ -51,9 +52,10 @@ index is an entity.
 struct TableColumn{T}
 	id::Int
     data::StructArray{T}
+    locks::HierarchicalLock{T}
 
     ## Constructor
-    TableColumn(id::Int, s::StructArray{T}) where {T} = new{T}(id,s)
+    TableColumn(id::Int, s::StructArray{T}) where T = new{T}(id,s, HierarchicalLock{T}())
     TableColumn{T}(id::Int,::UndefInitializer, n::Integer) where T = TableColumn(id,StructArray{T}(undef, n))
 end
 

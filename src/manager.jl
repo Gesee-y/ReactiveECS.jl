@@ -6,7 +6,7 @@
 
 export Query, ECSManager, SysToken
 export @query, @foreachrange
-export dispatch_data, register_component!, get_component, blocker
+export dispatch_data, register_component!, get_component, blocker, get_lock
 
 ######################################################### Core ##########################################################
 
@@ -95,6 +95,7 @@ end
 ################################################### Functions ###################################################
 
 get_id(ecs::ECSManager) = -1
+get_lock(ecs::ECSManager, sym::Symbol, path) = HierarchicalLocks.get_node(get_component(ecs, symb), path)
 
 """
     dispatch_data(ecs)
@@ -124,13 +125,10 @@ register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = register_co
 This returns the SoA of a component of name `s`.
 """
 get_component(ecs::ECSManager, s::Symbol) = begin 
-    w::Dict{Symbol, TableColumn} = ecs.table.columns
-    if haskey(w, s)
-    	return w[s]
-    else
-    	error("ECSManager doesn't have a component $s")
-    end
+    w = ecs.table.columns
+    return w[s]
 end
+get_component(ecs::ECSManager, T::Type) = get_component(ecs, to_symbol(type))
 
 Base.iterate(q::Query, i=1) = i > length(q.partitions) ? nothing : (q.partitions[i], i+1)
 
