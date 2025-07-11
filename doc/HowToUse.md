@@ -1,14 +1,14 @@
-# RECS Guide
+# ReactiveECS Guide
 
 ## Introduction
 
-RECS is a reactive Entity-Component-System (ECS) framework in Julia, designed for high-performance game development and simulations. In an ECS, **entities** are objects, **components** store their data, and **systems** define their behavior. RECS stands out with its asynchronous, data-driven architecture, enabling modular and efficient workflows. This guide walks you through installing and using RECS to build your own ECS-based projects.
+ReactiveECS is a reactive Entity-Component-System (ECS) framework in Julia, designed for high-performance game development and simulations. In an ECS, **entities** are objects, **components** store their data, and **systems** define their behavior. ReactiveECS stands out with its asynchronous, data-driven architecture, enabling modular and efficient workflows. This guide walks you through installing and using ReactiveECS to build your own ECS-based projects.
 
-For a deeper understanding of RECS's architecture, see [A Reactive Architecture for ECS](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Architecture.md).
+For a deeper understanding of ReactiveECS's architecture, see [A Reactive Architecture for ECS](link-to-main-article).
 
 ## Getting Started
 
-To install RECS, use Julia's package manager:
+To install ReactiveECS, use Julia's package manager:
 
 ```julia
 julia> ]add ReactiveECS
@@ -20,7 +20,7 @@ For the development version, add the GitHub repository:
 julia> ]add https://github.com/Gesee-y/ReactiveECS.jl
 ```
 
-After installation, import RECS:
+After installation, import ReactiveECS:
 
 ```julia
 using ReactiveECS
@@ -48,23 +48,10 @@ Example:
 end
 ```
 
-This creates a `PositionComponent` with fields `x` and `y`. Initialize it with:
+This creates a `Position` component with fields `x` and `y`. Initialize it with:
 
 ```julia
-pos = PositionComponent(1.0, 2.5)
-```
-
-To change the default suffix (`Component`), overload `default_suffix`:
-
-```julia
-ReactiveECS.default_suffix() = "Object"
-
-@component Position begin
-    x::Float64
-    y::Float64
-end
-
-pos = PositionObject(1.0, 2.5)
+pos = Position(1.0, 2.5)
 ```
 
 > **Note**: The component name (e.g., `Position`) is used for querying and accessing data, as shown later.
@@ -83,7 +70,24 @@ Initialize a system instance:
 my_sys = MySystem()
 ```
 
-> **Important**: Always store system instances, as RECS runs instances, not system types. Multiple instances of the same system can coexist.
+You can also create a system with custon fields with :
+
+```julia
+@system MySystem begin
+    field1::Type1
+    field2::Type2
+    #...
+    fieldn::Typen
+end
+```
+
+and then you can initialize it with
+
+```julia
+my_sys = MySystem(n1,n2,...,nn)
+```
+
+> **Important**: Always store system instances, as RECS runs instances, not system types. Multiple instances of the same system can coexist, even with different queries.
 
 ## Running Systems
 
@@ -91,11 +95,15 @@ Systems process data via their `run!` function, called when relevant data is dis
 
 ```julia
 function ReactiveECS.run!(world, sys::MySystem, ref::WeakRef)
-    E = world[sys] # A wrapper to simplify components access
-    indices = ref.value  # Indices of entities matching the system's subscription
+    query = ref.value  # Indices of entities matching the system's subscription
     # Access components (see "Getting Components" below)
-    # Process data
-    return data  # Optional: return data for other systems via listen_to
+    @foreachrange query begin
+        for i in range
+            # Your processing
+        end
+    end
+
+    return # Optional: return data for other systems via listen_to
 end
 ```
 
@@ -104,14 +112,18 @@ end
 Example system moving entities:
 
 ```julia
-@system MoveSystem
+@system MoveSystem begin
+    dt::Float32
 
 function ReactiveECS.run!(world, sys::MoveSystem, ref::WeakRef)
-    E = world[sys]
-    indices = ref.value
-    positions = E.Position  # Get all Position components
-    for idx in indices
-        positions[idx].x += 0.1  # Move entity along x-axis
+    query = ref.value
+    positions = get_component(world, :Position)  # Get all Position components
+    dt = sys.dt
+
+    @foreachrange query begin
+        for idx in range
+            positions.x[idx] += dt  # Move entity along x-axis
+        end
     end
     return positions  # Pass data to listeners
 end
@@ -130,7 +142,7 @@ world = ECSManager()
 Systems subscribe to specific component combinations (archetypes) using `subscribe!`. An archetype is a group of entities sharing the same components.
 
 ```julia
-subscribe!(world, my_sys, (PositionComponent,))
+subscribe!(world, my_sys, @query(world, PositionComponent))
 ```
 
 > **Tip**: Subscribe during initialization to minimize runtime overhead, as subscription scans existing entities (`O(n)` complexity).
@@ -144,25 +156,24 @@ Entities are rows in RECS’s internal table, with components as columns. Only s
 Create an entity with pre-set components using keyword arguments:
 
 ```julia
-entity = create_entity!(world; Position=PositionComponent(1.0, 2.0))
+entity = create_entity!(world; Position=Position(1.0, 2.0))
 ```
-
-Ensure keyword names match component names (e.g., `Position` for `PositionComponent`).
 
 ### With Uninitialized Components
 
 Faster, for entities with default or undefined component values:
 
 ```julia
-entity = create_entity!(world, (PositionComponent,))
+entity = create_entity!(world, (:Position,))
 ```
 
 ### Creating Multiple Entities
 
-For bulk creation, use `request_entities` (fastest option):
+For bulk creation, use `request_entity!` (fastest option):
 
 ```julia
-entities = request_entities(world, 100, (PositionComponent,))
+entities_init = request_entity!(world, 100; Position=Position(1.0,1.0))
+entities = request_entity!(world, 100, (:Position,))
 ```
 
 ## Removing Entities
@@ -173,7 +184,7 @@ Mark an entity’s slot as available for reuse:
 remove_entity!(world, entity)
 ```
 
-> **Note**: Removed entities are not deleted but marked free, allowing new entities to override them.
+> **Note**: Removed entities are not deleted but swapped with the last valid entity and placed outside the range, allowing new entities to override. If you create a new entity with no initialized component, it will have the data of that deleted entity.
 
 ## Getting Components
 
@@ -206,11 +217,20 @@ To modify a field, specify its type to avoid allocations:
 
 ```julia
 positions = get_component(world, :Position)
-x_positions::Vector{Float64} = positions.x  # Vector of x values
+x_positions = positions.x  # Vector of x values
 x_positions[get_id(entity)] = 5.0  # Modify x
 ```
+> **Note**: This version use a wrapper to help julia with type but this is quite slow for high entity counts. If you need top performances, use `x_positions::Vector{Float32} = getdata(positions).x`. This case no allocation and is quite faset. You can also use a function get the type with the parameters like:
 
-> **Warning**: Omitting type annotations may cause slowdowns due to Julia’s type inference.
+```julia
+function process(A::Vector{T}, query) where T <: AbstractFloat
+    # Your process
+end
+
+positions = get_components(world, :Position)
+x_positions = getdata(positions).x
+process(x_position, query)
+```
 
 ## Running Systems
 
@@ -256,22 +276,27 @@ using ReactiveECS
 end
 
 # Define system
-@system MoveSystem
+@system MoveSystem begin
+    dt::Float32
 
 function ReactiveECS.run!(world, sys::MoveSystem, ref::WeakRef)
-    E = world[sys]
-    indices = ref.value
-    positions = E.Position
-    for idx in indices
-        positions[idx].x += 0.1
+    query = ref.value
+    positions = get_component(world, :Position)  # Get all Position components
+    dt = sys.dt
+
+    @foreachrange query begin
+        for idx in range
+            positions.x[idx] += dt  # Move entity along x-axis
+        end
     end
-    return positions
+    return positions  # Pass data to listeners
 end
 
 # Setup
 world = ECSManager()
-move_sys = MoveSystem()
-subscribe!(world, move_sys, (PositionComponent,))
+move_sys = MoveSystem(0.1)
+
+subscribe!(world, move_sys, @query(world,Position))
 run_system!(move_sys)
 
 # Create entity
@@ -291,9 +316,3 @@ Frame 1: x=0.0
 Frame 2: x=0.1
 Frame 3: x=0.2
 ```
-
-## Troubleshooting
-
-- **Component not found**: Ensure the symbol in `get_component` matches the component name (e.g., `:Position` for `@component Position`).
-- **System not running**: Verify subscription with `subscribe!` and data dispatch with `dispatch_data`.
-- **Performance issues**: Use `get_component` instead of `entity.Component` and annotate types for field access.
