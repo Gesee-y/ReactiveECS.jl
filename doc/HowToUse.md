@@ -220,17 +220,18 @@ positions = get_component(world, :Position)
 x_positions = positions.x  # Vector of x values
 x_positions[get_id(entity)] = 5.0  # Modify x
 ```
-> **Note**: This version use a wrapper to help julia with type but this is quite slow for high entity counts. If you need top performances, use `x_positions::Vector{Float32} = getdata(positions).x`. This case no allocation and is quite faset. You can also use a function get the type with the parameters like:
 
-```julia
-function process(A::Vector{T}, query) where T <: AbstractFloat
-    # Your process
-end
+## Locking
 
-positions = get_components(world, :Position)
-x_positions = getdata(positions).x
-process(x_position, query)
+You have the ability to lock a specific field while working to avoid race conditions on that fields.
+for that you can do :
+
 ```
+positions = get_component(world, :Position)
+get_lock(position, (:x,)) # or get_lock(world, :Position, (:x,))
+```
+
+If the x field of position has sub fields you can also lock them if necessary by specifying their symbol after `:x`
 
 ## Running Systems
 
