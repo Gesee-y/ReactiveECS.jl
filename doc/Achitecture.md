@@ -178,7 +178,17 @@ Unused slots remain undefined but reserved — enabling **fast pooling** and sim
 
 ### Tree Layout
 
-Will be handled soon through components
+The hierarchy between entities is ensured via the package [NodeTree](https://github.com/Gesee-y/NodeTree.jl), adding support for BFS/DFS and other traversal utility using `RECS.BFS_search(ecs)` or `RECS.DFS_search(ecs)`
+We can visualize that hierarchy with `print_tree(io, ecs)`
+
+#### Example layout
+```
+ECSManager with 4 Nodes : 
+    ├─Entity : "Entity 1"
+    ├─Entity : "Entity 2"
+    │   └─Entity : "Entity 3"
+    └─Entity : "Entity 4"
+```
 
 ### Dispatching Logic
 
