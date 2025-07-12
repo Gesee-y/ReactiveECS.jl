@@ -35,8 +35,8 @@ mutable struct LockNode{T}
 	function LockNode{T}() where T
 		dict = Dict{Symbol, LockNode}()
 		
-		if _has_no_field(T)
-			ln = new{T}(dict, false, ReentrantLock())
+		if !_has_no_field(T)
+			ln = new{T}(dict, false)
 			
 			for field in fieldnames(T)
 				t = fieldtype(T, field)
@@ -45,7 +45,7 @@ mutable struct LockNode{T}
 
 			return ln
 		else
-			return new{T}(dict, false)
+			return new{T}(dict, false, ReentrantLock())
 		end
 	end
 end
@@ -85,7 +85,7 @@ get_children(ln::LockNode) = is_leave(ln) ? () : values(ln.children)
 Will return the `LockNode` at `path` starting at `ln`.
 `path` is an iterator of symbols where each one is a field of the subsequent one.
 """
-function get_node(ln::LockNode, path)
+function get_node(ln::LockNode, path::NTuple{N,Symbol}) where N
 	current_node = ln
 	for symb in path
 		current_node = current_node.children[symb]
@@ -121,7 +121,7 @@ This will lock `ln` at `path`, execute `f` then unlock `ln` at `path.
 """
 Base.lock(hl::HierarchicalLock, path) = lock(hl.root, path)
 Base.lock(f::Function, hl::HierarchicalLock, path) = lock(f, hl.root, path)
-Base.lock(ln::LockNode) = _func_at(lock, ln, path)
+Base.lock(ln::LockNode) = _func_at(lock, ln)
 Base.lock(ln::LockNode, path) = lock(get_node(ln,path))
 Base.lock(f::Function, ln::LockNode) = (lock(ln); f(); unlock(ln))
 Base.lock(f::Function, ln::LockNode, path) = (node=get_node(ln,path);lock(node, path); f(); unlock(node, path))

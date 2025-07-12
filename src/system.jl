@@ -98,15 +98,13 @@ function run_system!(@nospecialize(system::AbstractSystem))
 		batch = take!(system.flow)
 
 		try
-
 			# First we check if this is the last system running
 			sys_done[] >= sys_count[] && atomic_sub!(sys_done,1)
-		    debug = debug_mode()
 		    result = nothing
 
 		    # If we are in debug mode
 		    # We will log the data received, the run statistics and the value returned
-		    if debug
+		    if debug_mode()
 		    	Log!(ecs_logger, logdata, INFO, "Received data : $batch")
 		    	logdata.stats = @timed run!(ecs, system, batch)
 		    	result = logdata.stats.value
@@ -129,7 +127,7 @@ function run_system!(@nospecialize(system::AbstractSystem))
 	    	system.active = false # We finally stop the system
 		finally
 			# We check if the system it's the last system running and if there is no more data to process
-			if sys_done[] >= sys_count[] && isempty(flow)
+			if sys_done[] >= sys_count[] && isempty(system.flow)
 				notify(ecs.blocker) # We unblock the ecs's blocker
 				sys_done[] = 0 # And we reset the counter
 			end

@@ -49,13 +49,13 @@ This represent a column of the table. A column is in a fact a Struct of array wh
 index is an entity.
 `id` is the position of the bit representing this column.
 """
-struct TableColumn{T}
+struct TableColumn{T,N,C,I}
 	id::Int
-    data::StructArray{T}
+    data::StructArray{T,N,C,I}
     locks::HierarchicalLock{T}
 
     ## Constructor
-    TableColumn(id::Int, s::StructArray{T}) where T = new{T}(id,s, HierarchicalLock{T}())
+    TableColumn(id::Int, s::StructArray{T,N,C,I}) where {T,N,C,I} = new{T,N,C,I}(id,s, HierarchicalLock{T}())
     TableColumn{T}(id::Int,::UndefInitializer, n::Integer) where T = TableColumn(id,StructArray{T}(undef, n))
 end
 
@@ -116,6 +116,8 @@ Base.eachindex(v::TableColumn) = eachindex(getdata(v))
 Base.getindex(v::TableColumn, i) = getdata(v)[i]
 Base.setindex!(v::TableColumn, val, i) = (getdata(v)[i] = val)
 getdata(v::TableColumn) = getfield(v, :data)
+getlocks(v::TableColumn) = getfield(v, :locks)
+get_lock(v::TableColumn, path::NTuple{N,Symbol}) where N = HierarchicalLocks.get_node(getlocks(v).root, path)
 get_id(t::TableColumn) = getfield(t, :id)
 Base.getproperty(v::TableColumn, s::Symbol) = get_field(v, Val(s))
 
@@ -361,6 +363,21 @@ function swap_remove!(t::ArchTable, e::Entity)
 	end
 end
 
+"""
+    swap!(t::ArchTable, i::Int, j::Int; fields=())
+
+Swap the component given by `fields` of the rows `i` and `j`.
+This doesn't modify the entity, it just swap their component.
+
+    swap!(t::ArchTable, e1::Entity, e2::Entity)
+
+Does the same as above but instead, `fields` is the components of `e1`.
+`i` and `j` are respectively the index of `e1` and `e2` whose index will be swapped at the end.
+
+    swap!(arch::TableColumn, i::Int, j::Int)
+
+This will swap the data of the index `i` and `j` of the column `arch`.
+"""
 function swap!(t::ArchTable, i::Int, j::Int; fields=())
     for f in fields
     	arch = t.columns[f]
@@ -385,7 +402,15 @@ end
     return expr
 end
 
+"""
+    change_archetype(t::ArchTable, e::Entity, archetype::Integer)
+
+Move the entity `e` of the table `t` from his archetype to a new `archetype`.
+This function assume `t` contain a partition for `archetype` else it will panic.
+"""
 function change_archetype(t::ArchTable, e::Entity, archetype::Integer)
+
+	# Relevant data neatly organized
     new_partition = t.partitions[archetype]
 	partition = t.partitions[e.archetype]
     new_to_fill = new_partition.to_fill
@@ -397,9 +422,12 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer)
 	j = zone[end]
 	i = get_id(e)
 
+    # We first something like a deletion to the entity
+    # Taking it to the last position and shrinking the range
     swap!(t,e,entities[j])
 	zone.e -= 1
 	
+	# Now if there is some space to fill in the new archetype's partition
 	if !isempty(new_to_fill)
 		fill_id = to_fill[end]
 		new_zone = new_zones[fill_id]

@@ -95,7 +95,7 @@ end
 ################################################### Functions ###################################################
 
 get_id(ecs::ECSManager) = -1
-get_lock(ecs::ECSManager, sym::Symbol, path) = HierarchicalLocks.get_node(get_component(ecs, symb), path)
+get_lock(ecs::ECSManager, symb::Symbol, path) = get_lock(get_component(ecs, symb), path)
 
 """
     dispatch_data(ecs)
@@ -105,7 +105,7 @@ This function will distribute data to the systems given the archetype they have 
 function dispatch_data(ecs::ECSManager)
     queries::Dict{AbstractSystem, Query} = ecs.queries
 	for system in keys(queries)
-        put!(system.flow, SysToken())
+        put!(system.flow, queries[system])
 	end
 end
 
