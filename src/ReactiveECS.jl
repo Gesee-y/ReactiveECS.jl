@@ -32,6 +32,8 @@ abstract type AbstractSystem end
 
 const Optional{T} = Union{Nothing, T}
 
+# Mutable Ints
+include("mutable_int.jl")
 # Entities management
 include("entity.jl")
 # Table representation
@@ -44,5 +46,7 @@ include("manager.jl")
 include("system.jl")
 # Operations
 include("operations.jl")
+# Utilitary
+include("utils.jl")
 
 end # module ReactiveECS

@@ -104,10 +104,11 @@ mutable struct ArchTable{T}
 	partitions::Dict{T, TablePartition}
 	entity_count::Int
 	component_count::Int
+	row_count::Int
 
 	## Constructors
 
-	ArchTable{T}() where T = new{T}(Optional{Entity}[], Dict{Symbol, TableColumn}(), Dict{T, TablePartition}(), 0, 0)
+	ArchTable{T}() where T = new{T}(Optional{Entity}[], Dict{Symbol, TableColumn}(), Dict{T, TablePartition}(), 0, 0, 0)
 end
 
 ##################################################### Functions #########################################################
@@ -142,7 +143,7 @@ This initialize the columns for the components contained in `data`.
 """
 function initcolumns!(t::ArchTable, data::NamedTuple)
 	columns = t.columns
-	count = t.entity_count+1
+	count = t.row_count+1
 	for d in data
 		key = to_symbol(d)
 		!haskey(columns, key) && (t.component_count+=1; 
@@ -159,7 +160,7 @@ This function is not advised, at least you know what you are doing.
 """
 function addrow!(t::ArchTable, data::NamedTuple)
 	columns = t.columns
-	count = t.entity_count+1
+	count = t.row_count
 	resize!(t, count)
 	for key in keys(data)
 		elt = data[key]
@@ -206,9 +207,10 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 		partition = TablePartition(TableRange[TableRange(t.entity_count+1,t.entity_count+n, n)], Int[])
     	partitions[archetype] = partition # And creating that new archetype
 
-    	resize!(t, length(t.entities)+n)
+        resize!(t, length(t.entities)+n)
     	push!(intervals, t.entity_count+1:t.entity_count+n)
-
+        t.entity_count += n
+    	
         return intervals
     end
     
@@ -245,10 +247,12 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 		# We create a new range for it with the given offset
 		push!(zones, TableRange(t.entity_count+1, t.entity_count+m+offset, m+offset))
 		push!(part_to_fill, length(zones)) # We add this new zone as to be filled
+	    
+	    nsize = length(t.entities)+m
+		resize!(t, nsize) # Finally we just resize our table
 	end
 
-    resize!(t, length(t.entities)+n) # Finally we just resize our table
-    resize!(t.entities, length(t.entities)+n)
+	t.entity_count += n
 
     return intervals
 end
@@ -267,7 +271,6 @@ function createpartition(t::ArchTable, archetype::Integer, size=DEFAULT_PARTITIO
     	partitions[archetype] = partition
 
     	resize!(t, t.entity_count+size)
-    	resize!(t.entities, t.entity_count+size)
     end
 end
 
@@ -286,6 +289,7 @@ function addtopartition(t::ArchTable{T}, archetype::Integer, size=DEFAULT_PARTIT
     to_fill::Vector{Int} = partition.to_fill
     id = t.entity_count+1
 
+
     # if there is some zone to fill
     if !isempty(to_fill)
     	fill_id = to_fill[end]
@@ -297,11 +301,14 @@ function addtopartition(t::ArchTable{T}, archetype::Integer, size=DEFAULT_PARTIT
     	id >= size && pop!(to_fill)
     else
     	# We create a new range and add it to the one to be filled
+    	zone[end] == t.entity_count
     	push!(zones, TableRange(id,id,size))
     	push!(to_fill, length(zones))
     	resize!(t, id+size-1)
     end
-
+    
+    t.entity_count += 1
+    
     return id
 end
 
@@ -310,6 +317,7 @@ get_column(t::ArchTable, field::Symbol) = t.columns[field]
 function Base.resize!(t::ArchTable, n::Int)
     columns = t.columns
     resize!(t.entities, n)
+    t.row_count = n
     for column in values(columns)
         resize!(getdata(column), n)
     end	
@@ -326,7 +334,7 @@ function swap_remove!(t::ArchTable, e::Entity)
 	entities = t.entities
 	zones = partition.zones
 
-	i = get_id(e)
+	i = get_id(e)[]
     
     # If there are some zone to fill
 	if !isempty(to_fill)
@@ -345,7 +353,7 @@ function swap_remove!(t::ArchTable, e::Entity)
 				entities[j] = nothing
 		    else
 			    entities[j], entities[i] = nothing, entities[j]
-			    e.ID, entities[i].ID = j, i
+			    e.ID[], entities[i].ID[] = j, i
 			
 			    swap!(t, i, j; fields=e.components)
 		    end
@@ -360,6 +368,13 @@ function swap_remove!(t::ArchTable, e::Entity)
 		partition.zones[end].s -= 1
 		entities[i] = nothing
 		push(to_fill, length(partition.zones))
+	end
+
+    t.entity_count -= 1
+
+	for ids in e.children
+		child = entities[ids[]]
+		swap_remove!(child)
 	end
 end
 
@@ -385,9 +400,9 @@ function swap!(t::ArchTable, i::Int, j::Int; fields=())
     end
 end
 function swap!(t::ArchTable, e1::Entity, e2::Entity)
-	i, j = get_id(e1), get_id(e2)
+	i, j = get_id(e1)[], get_id(e2)[]
 	swap!(t, i, j, fields=e1.components)
-	e1.ID, e2.ID = j, i
+	e1.ID[], e2.ID[] = j, i
 end
 @generated function swap!(arch::TableColumn{T}, i::Int, j::Int) where T
     fields=fieldnames(T)
@@ -420,7 +435,7 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer)
     entities = t.entities
 	zone = zones[end]
 	j = zone[end]
-	i = get_id(e)
+	i = get_id(e)[]
 
     # We first something like a deletion to the entity
     # Taking it to the last position and shrinking the range
@@ -433,10 +448,10 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer)
 		new_zone = new_zones[fill_id]
 		id = new_zone[end] +1
 		new_zone.e += 1
-		e.ID = id
+		e.ID[] = id
 		swap!(t,i,id;fields=e.components)
 	else
-		e.ID = t.entity_count+1
+		e.ID[] = t.entity_count+1
 		push!(new_zones, TableRange(t.entity_count+1, t.entity_count+1, DEFAULT_PARTITION_SIZE))
 		swap!(t,i,t.entity_count+1)
 		
@@ -453,7 +468,7 @@ function get_entity(r::EntityRange, i::Integer)
     if id > r.init
     	id > length(entities) && resize!(entities, id)
     	@inbounds for j in L:id
-    		entities[j] = Entity(j, r.signature, r.key, r.world, r.parent_id, UInt[])
+    		entities[j] = Entity(j, r.signature, r.key, r.world; parent_ID=r.parent_id)
     	end
     	r.init = id
     else
@@ -469,7 +484,7 @@ Base.firstindex(t::TableRange) = t.s
 Base.lastindex(t::TableRange) = t.e
 Base.getindex(t::TableRange,i::Int) = 0 <= i <= length(t)+1 ? t.s+i-1 : throw(BoundsError(t,i))
 Base.in(t::TableRange, i::Int) = t.s <= i <= t.e
-Base.in(t::TableRange, e::Entity) = get_id(e) in t
+Base.in(t::TableRange, e::Entity) = get_id(e)[] in t
 
 #################################################### Helpers ###########################################################
 _print(f, io::IO, v::TableColumn) = f(io, getfield(v, :data))

@@ -117,6 +117,12 @@ This function returns the ECSManager's blocker, which can be used with wait in o
 blocker(ecs::ECSManager) = wait(ecs.blocker)
 blocker(v::Vector{Task}) = fetch.(v)
 
+"""
+    register_component!(ecs::ECSManager, T::Type{<:AbstractComponent})
+
+Register the a component in the manager `ecs.
+This will create a column for that component in a world.
+"""
 register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = register_component!(ecs.table, T)
 
 """

@@ -22,10 +22,17 @@ This struct represent an entity for the ECS. An entity is just an `ID`, which is
 `world` is a weak reference to the manager object.
 """
 mutable struct Entity
-	ID::Int
+	ID::MInt{Int64}
+    parentID::MInt64
 	archetype::UInt128
 	components::Tuple
 	world::WeakRef
+    children::Vector{MInt64}
+
+    ## Constructors
+
+    Entity(id::Int, archetype::Integer, components, ref; parentID=MInt64(-1)) = new(MInt64(id), parentID, 
+        archetype, components, ref, MInt64[])
 end
 
 ##################################################### Operations ########################################################
@@ -115,7 +122,42 @@ NodeTree.get_children(e::Entity) = getfield(e, :children)
 Return the index of the entity in the list of entities.
 Behave exactly as `get_id`.
 """
-NodeTree.get_nodeidx(e::Entity) = get_id(e)
+NodeTree.get_nodeidx(e::Entity) = get_id(e)[]
+
+"""
+    print_tree(io::IO,n::Entity;decal=0,mid=1,charset=get_charset())
+
+This will print to `io` the tree representation of the parent-child relationships starting from the entity `e`.
+`decal` is the actual number indentation (used to make a full tree).
+`mid` serve to indicate if there should be a midpoint symbol in the representation.
+`charset` is the set of character used to print the tree. See `TreeCharSet`.
+"""
+function NodeTree.print_tree(io::IO,n::Entity;decal=0,mid=1,charset=get_charset())
+    childrens = get_children(n)
+    tree = get_tree(n)
+
+    print(typeof(n)," : ")
+    print(nvalue(n))
+
+    for i in eachindex(childrens)
+        println()
+        child = get_node(tree,childrens[i])
+
+        for i in 1:decal+1
+            i > mid && print(charset.midpoint)
+            print(charset.indent)
+        end
+
+        if i < length(childrens) && !(decal-1>0)
+            print(charset.branch)
+        elseif !(decal-1>0)
+            print(charset.terminator)
+        end
+        print(io,charset.link)
+
+        print_tree(io,child;decal=decal+1,mid=(decal+1) + Int(i==length(childrens)))
+    end
+end
 
 """
     get_id(e::Entity)
