@@ -33,8 +33,6 @@ For development version
 julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 ````
 
-> Replace the URL with the actual GitHub repo link when available.
-
 ---
 
 ## Architecture Overview
