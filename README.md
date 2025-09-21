@@ -140,7 +140,7 @@ Benchmark have already been conducted against [Overseer.jl](https://github.com/l
 - **One system translating 100k entities with 1 components**: RECS took 163µs with vectorization,  623us without it vs 2.7ms for Overseer 
 - **3 System performing differential calculation on 100k entities fir various movements**: RECS took 10ms without vectorization vs 12ms fir Overseer. 
 
-You can read the full [article](https://juliadiscourse.com/discussion)
+You can read the full [article](https://discourse.julialang.org/t/reactiveecs-jl-v2-0-0-breaking-changes-for-massive-performance-boosts/130564/4)
 
 ## Systems variant
 
