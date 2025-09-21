@@ -87,6 +87,43 @@ Partitions (symbolic archetypes) pack similar entities continuously in memory wi
 
 This topic is discussed in more detail [here](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
 
+## Event system
+
+ReactiveECS provide a fully functional event system. It leverage the [EventNotifiers.jl](https://github.com/Gesee-y/EventNotifiers.jl) package.
+You can define a new package with `@Notifyer(arg1::T1, arg2::T2, ..., argn::Tn)`, see [Notifyers's doc](https://github.com/Gesee-y/EventNotifiers.jl/blob/main/docs/index.md). You can reuse all the features available in that package here. Meaning supports for:
+- **Merge**: Combine multiple events (e.g., 10 HP changes into 1).
+- **Filtering**: Calls listener just if the event meet some conditions.
+- **One-shot Listeners**: Execute once and unsubscribe.
+- **Priorities and Delays**: Control execution order and timing.
+- **Retention**: Store recent event values.
+- **Performance**: 200 ns (no listeners), 1.6 µs (per listener), 4 µs (in single task state, independent from the listeners's count).
+
+### Example 
+
+```julia
+@Notifyer on_damage(amount::Int)
+enable_value(on_damage)
+async_notif(on_damage)
+critical_hit = filter(amount -> amount > 100, on_damage)
+
+tick = EventNotifiers.fps(15) # Emit 15 times per second
+connect(tick) do dt
+    ## code 
+end
+
+```
+
+## Debugging and profiling
+
+We can switch to debug mode by overloading the function `debug_mode()`.
+On this mode, the manager object will log the data received by each system, the data returned and profiling will be active
+We can get the statistics of a system with `get_profile_stats(system)`. The format of the stats is the same as the one returned by `@timed`.
+By default, the logs aren't directly written to a file. You should use `write!(io, ecs.logger)` where `ecs` is your `ECSManager` object.
+
+The logger use the module **LogTracer.jl** inspired by git.
+When you write a log, it's first staged in RAM so that performance aren't impacted. Then you can call `flush(io, ecs.logger)` to actually write the logs into a file.
+each time you write a log, a Notifyer named `ON_LOG` is triggered so you can for example filter it for critical logs only and flush when it's are triggered. 
+
 ___
 
 ## Example
