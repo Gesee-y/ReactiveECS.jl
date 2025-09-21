@@ -90,8 +90,7 @@ end
 @system MoveSystem begin
     dt::Float32
 
-function ReactiveECS.run!(world, sys::MoveSystem, ref::WeakRef)
-    query = ref.value
+function ReactiveECS.run!(world, sys::MoveSystem, query::Query)
     positions = get_component(world, :Position)  # Get all Position components
     dt = sys.dt
 
