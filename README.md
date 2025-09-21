@@ -77,6 +77,50 @@ This raises two main concerns:
 
 ## Example
 
+```julia
+using ReactiveECS
+
+# Define component
+@component Position begin
+    x::Float64
+    y::Float64
+end
+
+# Define system
+@system MoveSystem begin
+    dt::Float32
+
+function ReactiveECS.run!(world, sys::MoveSystem, ref::WeakRef)
+    query = ref.value
+    positions = get_component(world, :Position)  # Get all Position components
+    dt = sys.dt
+
+    @foreachrange query begin
+        for idx in range
+            positions.x[idx] += dt  # Move entity along x-axis
+        end
+    end
+    return positions  # Pass data to listeners
+end
+
+# Setup
+world = ECSManager()
+move_sys = MoveSystem(0.1)
+
+subscribe!(world, move_sys, @query(world,Position))
+run_system!(move_sys)
+
+# Create entity
+entity = create_entity!(world; Position=PositionComponent(0.0, 0.0))
+
+# Run for 3 frames
+for frame in 1:3
+    println("Frame $frame: x=$(entity.Position.x)")
+    dispatch_data(world)
+    blocker(world)
+end
+```
+
 ---
 
 ## License
