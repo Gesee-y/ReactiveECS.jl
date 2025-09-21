@@ -75,6 +75,13 @@ This raises two main concerns:
 
 ---
 
+## Performances
+
+It's a critical point of any ECS and RECS doesn't neglect it. His partitioned table offer similar performances to an archetype based ECS. Partitions packs similar entities continously in memory without indirections allowing top performances. 
+This is discussed in depth [here](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
+
+___
+
 ## Example
 
 ```julia
