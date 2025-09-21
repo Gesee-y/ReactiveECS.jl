@@ -31,6 +31,53 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 
 ---
 
+## Example
+
+```julia
+using ReactiveECS
+
+# Define component
+@component Position begin
+    x::Float64
+    y::Float64
+end
+
+# Define system
+@system MoveSystem begin
+    dt::Float32
+
+function ReactiveECS.run!(world, sys::MoveSystem, query::Query)
+    positions = get_component(world, :Position)  # Get all Position components
+    dt = sys.dt
+
+    @foreachrange query begin
+        for idx in range
+            positions.x[idx] += dt  # Move entity along x-axis
+        end
+    end
+    return positions  # Pass data to listeners
+end
+
+# Setup
+world = ECSManager()
+move_sys = MoveSystem(0.1)
+
+subscribe!(world, move_sys, @query(world,Position))
+run_system!(move_sys)
+
+# Create entity
+entity = create_entity!(world; Position=PositionComponent(0.0, 0.0))
+
+# Run for 3 frames
+for frame in 1:3
+    println("Frame $frame: x=$(entity.Position.x)")
+    dispatch_data(world)
+    blocker(world)
+end
+```
+
+---
+
 ## Overview  
 
 Like almost every ECS, ReactiveECS (RECS) is built around two core principles:  
@@ -87,6 +134,39 @@ Partitions (symbolic archetypes) pack similar entities continuously in memory wi
 
 This topic is discussed in more detail [here](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
 
+## Systems variant
+
+One poweful benefits of RECS reside within 2 things:
+
+- **The manager execute systems instances**: This means that when a system subscribe to a query or another system,  it's the actual instance of the system that make it, not the type it's. you can create as much instances as you want and connect them as you like, cycles will be automatically detected.
+
+- **System can have multiple executions**: You can leverage multiple dispatch to specialize the executions of your systems.
+
+### Example
+
+@system PhysicSystem begin
+    dt::Float32
+end
+
+physic1 = PhysicSystem(1/60)
+physic2 = PhysicSystem(1/30)
+
+```julia
+function ReactiveECS.run!(world, sys::PhysicSystem, query::Query)
+    # declaring variables
+    # Processing the query
+    return data::MyCustomData 
+end
+
+# Here the system received data from another system
+function ReactiveECS.run!(world, sys::PhysicSystem,  data::MyCustomData) 
+    # My specialized process for this case
+end
+
+subscribe(world, physic1, @query(world, Position & Physic & ~Invincible) # We suppose these components exist
+listen_to(physic1, physic2)
+```
+
 ## Event system
 
 ReactiveECS provide a fully functional event system. It leverage the [EventNotifiers.jl](https://github.com/Gesee-y/EventNotifiers.jl) package.
@@ -127,50 +207,7 @@ Each time you write a log, a `Notifyer` named `ON_LOG` is triggered. This allows
 
 ___
 
-## Example
 
-```julia
-using ReactiveECS
-
-# Define component
-@component Position begin
-    x::Float64
-    y::Float64
-end
-
-# Define system
-@system MoveSystem begin
-    dt::Float32
-
-function ReactiveECS.run!(world, sys::MoveSystem, query::Query)
-    positions = get_component(world, :Position)  # Get all Position components
-    dt = sys.dt
-
-    @foreachrange query begin
-        for idx in range
-            positions.x[idx] += dt  # Move entity along x-axis
-        end
-    end
-    return positions  # Pass data to listeners
-end
-
-# Setup
-world = ECSManager()
-move_sys = MoveSystem(0.1)
-
-subscribe!(world, move_sys, @query(world,Position))
-run_system!(move_sys)
-
-# Create entity
-entity = create_entity!(world; Position=PositionComponent(0.0, 0.0))
-
-# Run for 3 frames
-for frame in 1:3
-    println("Frame $frame: x=$(entity.Position.x)")
-    dispatch_data(world)
-    blocker(world)
-end
-```
 
 ---
 
