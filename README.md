@@ -20,7 +20,8 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 
 ## Characteristics  
 
-- **Fast**: The fastest ECS in Julia, already outperforming some well-established C/C++ ECS. See [this](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).  
+- **Fast**: The fastest ECS in Julia, already outperforming some well-established C/C++ ECS. See [this](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
+- **Maximum memory locality**: Partitions makes sure entities are tighly packed in memory, allowing vectorization.
 - **Flexible**: Add, remove, or chain systems at runtime — you can even inject a system in the middle of a chain.  
 - **Granular concurrency safety**: Provides specialized tools like **HierarchicalLock** to help you cleanly manage concurrency.  
 - **Inherently ready for parallelism**: Its partitioned table already acts as chunks for parallel processing with cycles detection.
