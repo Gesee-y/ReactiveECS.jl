@@ -59,7 +59,7 @@ Memory layout is critical in every ECS, as it directly impacts performance and m
 RECS uses a **database-like memory layout** instead of archetype tables.  
 
 How does it work?  
-- Components are registered as columns.  
+- Components are registered as columns with an SoA layout.  
 - Entities are just rows in the table.  
 
 The table is **dense**, ensuring maximum performances when iterating on it.
