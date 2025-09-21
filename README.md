@@ -1,4 +1,4 @@
-# Reactive ECS in Julia
+# ReactiveECS.jl: Reconciling Performance and Flexibility 
 
 A high-performance, modular, event-driven ECS (Entity-Component-System) architecture written in Julia. Designed for game engines, simulations, or any data-oriented architecture maximum performances with extreme flexibility.
 
@@ -62,6 +62,7 @@ How does it work?
 - Components are registered as columns.  
 - Entities are just rows in the table.  
 
+The table is **dense**, ensuring maximum performances when iterating on it.
 This layout, however, has a side effect: every entity has every component, even unused ones.  
 
 This raises two main concerns:  
@@ -77,8 +78,12 @@ This raises two main concerns:
 
 ## Performances
 
-It's a critical point of any ECS and RECS doesn't neglect it. His partitioned table offer similar performances to an archetype based ECS. Partitions packs similar entities continously in memory without indirections allowing top performances. 
-This is discussed in depth [here](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
+It’s a critical aspect of any ECS, and RECS doesn’t neglect it.  
+Its partitioned table offers performance comparable to an archetype-based ECS.  
+
+Partitions (symbolic archetypes) pack similar entities continuously in memory without indirections, enabling top performance and reducing pointer chasing. This also minimizes the need for frequent table switches, which is a common overhead in archetype-based ECS.  
+
+This topic is discussed in more detail [here](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
 
 ___
 
