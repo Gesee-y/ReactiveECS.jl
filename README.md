@@ -120,9 +120,10 @@ On this mode, the manager object will log the data received by each system, the 
 We can get the statistics of a system with `get_profile_stats(system)`. The format of the stats is the same as the one returned by `@timed`.
 By default, the logs aren't directly written to a file. You should use `write!(io, ecs.logger)` where `ecs` is your `ECSManager` object.
 
-The logger use the module **LogTracer.jl** inspired by git.
-When you write a log, it's first staged in RAM so that performance aren't impacted. Then you can call `flush(io, ecs.logger)` to actually write the logs into a file.
-each time you write a log, a Notifyer named `ON_LOG` is triggered so you can for example filter it for critical logs only and flush when it's are triggered. 
+The logger uses the module **LogTracer.jl**, inspired by Git.  
+When you write a log, it is first staged in RAM so that performance isn’t impacted. Then you can call `flush(io, ecs.logger)` to actually write the logs to a file.  
+
+Each time you write a log, a `Notifyer` named `ON_LOG` is triggered. This allows, for example, filtering only critical logs and flushing them when they are triggered.
 
 ___
 
