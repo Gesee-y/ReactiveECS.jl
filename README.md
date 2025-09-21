@@ -136,11 +136,13 @@ This topic is discussed in more detail [here](https://github.com/Gesee-y/Reactiv
 
 ## Systems variant
 
-One poweful benefits of RECS reside within 2 things:
+One of the powerful benefits of RECS lies in two key aspects:  
 
-- **The manager execute systems instances**: This means that when a system subscribe to a query or another system,  it's the actual instance of the system that make it, not the type it's. you can create as much instances as you want and connect them as you like, cycles will be automatically detected.
+- **The manager executes system instances**:  
+  When a system subscribes to a query or another system, it’s the actual instance — not just the type — that does so. You can create as many instances as you want and connect them as you like. Cycles are automatically detected.  
 
-- **System can have multiple executions**: You can leverage multiple dispatch to specialize the executions of your systems.
+- **Systems can have multiple executions**:  
+  Thanks to multiple dispatch, you can specialize different execution paths for your systems.
 
 ### Example
 
