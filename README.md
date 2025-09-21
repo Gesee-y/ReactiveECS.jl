@@ -130,9 +130,16 @@ This raises two main concerns:
 It’s a critical aspect of any ECS, and RECS doesn’t neglect it.  
 Its partitioned table offers performance comparable to an archetype-based ECS.  
 
-Partitions (symbolic archetypes) pack similar entities continuously in memory without indirections, enabling top performance and reducing pointer chasing. This also minimizes the need for frequent table switches, which is a common overhead in archetype-based ECS.  
+Partitions (symbolic archetypes) pack similar entities continuously in memory without indirections, enabling top performance and reducing pointer chasing. This also minimizes the need for frequent table switches, which is a common overhead in archetype-based ECS.
 
 This topic is discussed in more detail [here](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
+
+Benchmark have already been conducted against [Overseer.jl](https://github.com/louisponet/Overseer.jl) on 2 cases
+
+- **One system translating 100k entities with 1 components**: RECS took 163µs with vectorization,  623us without it vs 2.7ms for Overseer 
+- **3 System performing differential calculation on 100k entities fir various movements**: RECS took 10ms without vectorization vs 12ms fir Overseer. 
+
+You can read the full [article](https://juliadiscourse.com/discussion)
 
 ## Systems variant
 
