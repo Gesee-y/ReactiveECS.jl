@@ -28,6 +28,7 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 - **Easy to use**: Thanks to Julia’s powerful macros, which abstract away complexity.  
 - **Database-like queries**: Query entities across tables, use foreign keys, and more.
 - **Allow lazy operations**: Such as lazy entities creation.
+- **Entities hierarchy**: You are allowed to build parent-child relationships betwenn entities.
 
 ---
 
@@ -175,6 +176,13 @@ end
 subscribe(world, physic1, @query(world, Position & Physic & ~Invincible) # We suppose these components exist
 listen_to(physic1, physic2)
 ```
+
+## Race Condition
+
+To prevent race conditions during systems's executions, RECS provides `HierarchicalLock`s which is a tree of lock where each field (and nested sub fields) of a component possess a lock.
+For example if we have system A, system B, system C running in parallel and a component Transform. System A want to write on the x field of transform, B on the y field and C want to read both and eventually write. Instead of putting a lock on transform (which may also block system B), system A will just lock the x field which he his using while System B will lock the y field.
+This allow granular control over parallelism while introducing a low overhead (400ns for the lifecycle of a lock.).
+
 
 ## Event system
 
