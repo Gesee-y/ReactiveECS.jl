@@ -1,23 +1,6 @@
-![Logo](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/assets/logo.jpg)
-*Logo temporaire*
-
 # Reactive ECS in Julia
 
-A high-performance, modular, event-driven ECS (Entity-Component-System) architecture written in Julia. Designed for game engines, simulations, or any data-oriented architecture requiring reactive system dispatching and efficient memory layout.
-
-> The term 'Reactive' refers to the fact that systems react to the presence of data to run their process
-
----
-
-## Features
-
-- **Data-oriented ECS** with columnar data storage, entities as row, components as columns.
-- **Reactive dispatch system**: systems only receive relevant entities each frame.
-- **Chunk-based memory layout** for cache efficiency and performance.
-- **Multithreading-ready**: systems can process chunks in parallel.
-- **Dynamic system subscription** at runtime.
-- **Server-ready architecture**: centralized dispatch can scale across networked clients.
-- **Benchmark proven** with consistent performance across large entity counts.
+A high-performance, modular, event-driven ECS (Entity-Component-System) architecture written in Julia. Designed for game engines, simulations, or any data-oriented architecture maximum performances with extreme flexibility.
 
 ---
 
@@ -35,15 +18,64 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 
 ---
 
-## Architecture Overview
+## Characteristics  
 
-* `Entity`: an ID with a map of named components.
-* `Component`: any struct implementing `AbstractComponent`.
-* `System`: a process that subscribes to an archetype and operates on matching entities.
-* `ECSManager`: the central controller that stores entities, handles subscriptions, and dispatches entity batches to systems.
-* `Partitions`: Range of entity with the same components combination.
+- **Fast**: The fastest ECS in Julia, already outperforming some well-established C/C++ ECS. See [this](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).  
+- **Flexible**: Add, remove, or chain systems at runtime — you can even inject a system in the middle of a chain.  
+- **Granular concurrency safety**: Provides specialized tools like **HierarchicalLock** to help you cleanly manage concurrency.  
+- **Inherently ready for parallelism**: Its partitioned table already acts as chunks for parallel processing.  
+- **Easy to use**: Thanks to Julia’s powerful macros, which abstract away complexity.  
+- **Database-like queries**: Query entities across tables, use foreign keys, and more.  
 
-For a detailled analysis check the [architecture](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md)
+---
+
+## Overview  
+
+Like almost every ECS, ReactiveECS (RECS) is built around two core principles:  
+
+- **System orchestration**  
+- **Memory layout**  
+
+But RECS introduces a twist in how it handles these aspects.  
+
+### System Orchestration  
+
+Most ECS orchestrate systems with a static DAG (the graph of interactions between systems). Once all systems are declared, a scheduler builds the DAG and determines execution order.  
+
+RECS completely breaks away from this principle and instead uses **reactive pipelines** to implicitly build the DAG of system execution.  
+
+A central manager dispatches queries: each system subscribes to a query or to another system’s output.  
+At each tick, the manager sends query results to relevant systems. Once they finish, they pass their results into the stream of dependent systems.  
+
+This allows for extreme flexibility, such as:  
+- Complete decoupling of systems  
+- Runtime recovery for bugged systems  
+- Reconfiguring the DAG at runtime  
+
+### Memory Layout  
+
+Memory layout is critical in every ECS, as it directly impacts performance and memory consumption. It’s what separates a good ECS from a bad one.  
+
+RECS uses a **database-like memory layout** instead of archetype tables.  
+
+How does it work?  
+- Components are registered as columns.  
+- Entities are just rows in the table.  
+
+This layout, however, has a side effect: every entity has every component, even unused ones.  
+
+This raises two main concerns:  
+
+- **How can we represent archetypes?**  
+  By using **partitions**. Continuous ranges within partitions represent entities that use the same set of components. Archetypes here are symbolic — entities still technically have all components, but partitions let us group those exclusively in use.  
+
+- **Memory waste**  
+  This layout does consume more memory than archetype-based ECS. To mitigate this, RECS introduces **multiple tables**.  
+  Each table is specialized for a subset of components (e.g., an `ENEMY` table with enemy-specific components, a `BULLET` table, or a `PROPS` table). Queries then work by intersecting partitions across these tables, ensuring efficient memory use.
+
+---
+
+## Example
 
 ---
 
