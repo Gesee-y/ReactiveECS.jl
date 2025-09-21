@@ -68,7 +68,7 @@ This layout, however, has a side effect: every entity has every component, even 
 This raises two main concerns:  
 
 - **How can we represent archetypes?**  
-  By using **partitions**. Continuous ranges within partitions represent entities that use the same set of components. Archetypes here are symbolic — entities still technically have all components, but partitions let us group those exclusively in use.  
+  By using **partitions**. Continuous ranges within partitions represent entities that use the same set of components. By default a partition is about 4096 entities, once filled a new one is allocated. Archetypes here are symbolic — entities still technically have all components, but partitions let us group those exclusively in use.  
 
 - **Memory waste**  
   This layout does consume more memory than archetype-based ECS. To mitigate this, RECS introduces **multiple tables**.  
