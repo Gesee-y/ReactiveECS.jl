@@ -233,9 +233,11 @@ You can use a `Notifyer` as field for a component and instantly track changes on
     max::Int
 end
 
-hp = Notifyer((Int,))
+hp = Notifyer("", (Int,))
 enable_value(hp) # The notifyer will keep hus last value
 async_latest(hp, 1) # Only the latest callback will be emitted
+
+health = Health(hp, 100)
 ```
 
 ## Tree Layout
