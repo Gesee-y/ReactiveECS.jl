@@ -237,10 +237,6 @@ When you write a log, it is first staged in RAM so that performance isn’t impa
 
 Each time you write a log, a `Notifyer` named `ON_LOG` is triggered. This allows, for example, filtering only critical logs and flushing them when they are triggered.
 
-___
-
-
-
 ---
 
 ## License
