@@ -282,13 +282,13 @@ While RECS offers high performance and extreme flexibility, there are a few limi
 
 - **Memory usage**: The database-like layout can consume more memory than archetype-based ECS designs, especially for large numbers of entities with many components.  
 
-- **Learning curve**: Concepts like reactive pipelines, partitions, and multi-stream data flow require some time to master, particularly for newcomers to ECS.  
+- **Learning curve**: Concepts like reactive pipelines, partitions, and database like storage require some time to master, particularly for newcomers to ECS.  
 
 - **Dispatch and synchronization overhead**: While generally minimal, the reactive pipeline introduces some overhead due to system dispatch and managing concurrency.  
 
 - **Manual optimizations**: RECS allows fine-grained control over loops and systems, which can boost performance. However, this also means beginners may need to invest extra effort to fully optimize their systems.  
 
-- **Debugging complexity**: Because of the reactive data flows and multi-stream architecture, tracing and debugging issues can require more effort than in traditional ECS designs.
+- **Debugging complexity**: Because of the reactive data flows, tracing and debugging issues can require more effort than in traditional ECS designs.
 
 ---
 
