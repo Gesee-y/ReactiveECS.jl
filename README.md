@@ -22,7 +22,8 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 
 - **Fast**: The fastest ECS in Julia, already outperforming some well-established C/C++ ECS. See [this](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
 - **Maximum memory locality**: Partitions makes sure entities are tighly packed in memory, allowing vectorization.
-- **Flexible**: Add, remove, or chain systems at runtime — you can even inject a system in the middle of a chain.  
+- **Flexible**: Add, remove, or chain systems at runtime — you can even inject a system in the middle of a chain.
+- **Changes tracking**: Optionally watch changes on a field of component.
 - **Granular concurrency safety**: Provides specialized tools like **HierarchicalLock** to help you cleanly manage concurrency.  
 - **Inherently ready for parallelism**: Its partitioned table already acts as chunks for parallel processing with cycles detection.
 - **Easy to use**: Thanks to Julia’s powerful macros, which abstract away complexity.  
@@ -220,6 +221,21 @@ connect(tick) do dt
     ## code 
 end
 
+```
+
+## Tracking changes
+
+You can use a `Notifyer` as field for a component and instantly track changes on his value.
+
+```julia
+@component Health begin
+    hp::Notifyer
+    max::Int
+end
+
+hp = Notifyer((Int,))
+enable_value(hp) # The notifyer will keep hus last value
+async_latest(hp, 1) # Only the latest callback will be emitted
 ```
 
 ## Tree Layout
