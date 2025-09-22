@@ -154,6 +154,7 @@ One of the powerful benefits of RECS lies in two key aspects:
 
 ### Example
 
+```julia
 @system PhysicSystem begin
     dt::Float32
 end
@@ -161,7 +162,6 @@ end
 physic1 = PhysicSystem(1/60)
 physic2 = PhysicSystem(1/30)
 
-```julia
 function ReactiveECS.run!(world, sys::PhysicSystem, query::Query)
     # declaring variables
     # Processing the query
