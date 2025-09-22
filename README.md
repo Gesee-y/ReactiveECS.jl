@@ -118,11 +118,18 @@ This layout, however, has a side effect: every entity has every component, even 
 This raises two main concerns:  
 
 - **How can we represent archetypes?**  
-  By using **partitions**. Continuous ranges within partitions represent entities that use the same set of components. By default a partition is about 4096 entities, once filled a new one is allocated. Archetypes here are symbolic — entities still technically have all components, but partitions let us group those exclusively in use.  
+  By using **partitions**. Continuous ranges within partitions represent entities that use the same set of components. By default a partition is about 4096 entities, once filled a new one is allocated. Archetypes here are symbolic — entities still technically have all components, but partitions let us group those exclusively in use. This mimic [Flecs](https://github.com/SanderMertens/flecs)'s archetypes table, ensuring memory locality and cache friendliness.
 
 - **Memory waste**  
   This layout does consume more memory than archetype-based ECS. To mitigate this, RECS introduces **multiple tables**.  
   Each table is specialized for a subset of components (e.g., an `ENEMY` table with enemy-specific components, a `BULLET` table, or a `PROPS` table). Queries then work by intersecting partitions across these tables, ensuring efficient memory use.
+
+This layout offers several advantages:
+
+- **Easy parallelism**: Partitions are compact chunks of entities, making them naturally suited for parallel processing.  
+- **No optionals**: Systems always see all components. They can simply use masks to skip entities without the required components, avoiding costly branching.  
+- **Reduced memory movement**: Adding an entity just means writing a row. Removing one is a swap-remove. Adding or removing a component only changes the partition, not the data layout.  
+- **Less pointer chasing**: Compared to archetypal ECS designs, there are fewer tables, which reduces indirection and improves cache locality.
 
 ---
 
@@ -135,12 +142,17 @@ Partitions (symbolic archetypes) pack similar entities continuously in memory wi
 
 This topic is discussed in more detail [here](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
 
-Benchmark have already been conducted against [Overseer.jl](https://github.com/louisponet/Overseer.jl) on 2 cases
+Benchmarks have already been conducted against [Overseer.jl](https://github.com/louisponet/Overseer.jl) in two scenarios:
 
-- **One system translating 100k entities with 1 components**: RECS took 163µs with vectorization,  623us without it vs 2.7ms for Overseer 
-- **3 System performing differential calculation on 100k entities fir various movements**: RECS took 10ms without vectorization vs 12ms fir Overseer. 
+- **One system translating 100k entities with 1 component**:  
+  - RECS: **163µs** with vectorization, **623µs** without  
+  - Overseer: **2.7ms**  
 
-You can read the full [article](https://discourse.julialang.org/t/reactiveecs-jl-v2-0-0-breaking-changes-for-massive-performance-boosts/130564/4)
+- **Three systems performing differential calculations on 100k entities for various movements**:  
+  - RECS: **10ms** without vectorization  
+  - Overseer: **12ms**  
+
+You can read the full [article here](https://discourse.julialang.org/t/reactiveecs-jl-v2-0-0-breaking-changes-for-massive-performance-boosts/130564/4).
 
 ## Systems variant
 
