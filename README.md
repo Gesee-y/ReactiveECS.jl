@@ -276,6 +276,20 @@ When you write a log, it is first staged in RAM so that performance isn’t impa
 
 Each time you write a log, a `Notifyer` named `ON_LOG` is triggered. This allows, for example, filtering only critical logs and flushing them when they are triggered.
 
+## Limitations
+
+While RECS offers high performance and extreme flexibility, there are a few limitations to be aware of:
+
+- **Memory usage**: The database-like layout can consume more memory than archetype-based ECS designs, especially for large numbers of entities with many components.  
+
+- **Learning curve**: Concepts like reactive pipelines, partitions, and multi-stream data flow require some time to master, particularly for newcomers to ECS.  
+
+- **Dispatch and synchronization overhead**: While generally minimal, the reactive pipeline introduces some overhead due to system dispatch and managing concurrency.  
+
+- **Manual optimizations**: RECS allows fine-grained control over loops and systems, which can boost performance. However, this also means beginners may need to invest extra effort to fully optimize their systems.  
+
+- **Debugging complexity**: Because of the reactive data flows and multi-stream architecture, tracing and debugging issues can require more effort than in traditional ECS designs.
+
 ---
 
 ## License
