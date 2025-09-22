@@ -30,6 +30,7 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 - **Database-like queries**: Query entities across tables, use foreign keys, and more.
 - **Allow lazy operations**: Such as lazy entities creation.
 - **Entities hierarchy**: You are allowed to build parent-child relationships betwenn entities.
+- **Multiple components per entities**: Through multiple tables and foreign keys.
 
 ---
 
@@ -189,6 +190,14 @@ end
 subscribe(world, physic1, @query(world, Position & Physic & ~Invincible) # We suppose these components exist
 listen_to(physic1, physic2)
 ```
+
+## Multiple Components 
+
+At first glance, it seems impossible to add the same component multiple times to an entity, since this would require adding more rows to the table, leading to increased memory usage.  
+
+To solve this, we borrow the **cardinality** concept from relational databases. To add multiple instances of a component to an entity, we create a separate table containing just that component as a column along with the ID of the entity it belongs to.  
+
+By iterating over this table, we can apply the effects of these multiple identical components to their respective owners.
 
 ## Race Condition
 
