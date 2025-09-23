@@ -2,6 +2,8 @@
 
 A high-performance, modular, event-driven ECS (Entity-Component-System) architecture written in Julia. Designed for game engines, simulations, or any data-oriented architecture maximum performances with extreme flexibility.
 
+It's already used by the highly flexible 2D/3D game engine [Cruise.jl](https://github.com/Gesee-y/Cruise.jl) one of his core architecture 
+
 ---
 
 ## Installation
