@@ -20,7 +20,7 @@ This will create entity with the given signature but with uninitialized componen
 `key` is a tuple of symbols, where each symbol is a component.
 """
 function create_entity!(ecs::ECSManager, comp::NamedTuple; parent=ecs, size=DEFAULT_PARTITION_SIZE)
-	table = ecs.table
+	table = get_table(ecs)
 	key = keys(comp)
 	partitions = table.partitions
 
@@ -37,7 +37,7 @@ function create_entity!(ecs::ECSManager, comp::NamedTuple; parent=ecs, size=DEFA
 	return entity
 end
 function create_entity!(ecs::ECSManager, key::Tuple; parent=ecs, size=DEFAULT_PARTITION_SIZE)
-	table = ecs.table
+	table = get_table(ecs)
 	key = to_symbol.(key)
 	partitions = table.partitions
 
@@ -66,11 +66,11 @@ Do the same as above but doesn't initialize the components so they just have gar
 Note that this is significantly faster than the other version of this function.
 """
 function request_entity!(ecs::ECSManager, comp::NamedTuple, count::Int; parent=ecs)
-	table = ecs.table
+	table = get_table(ecs)
 	key = keys(comp)
 	partitions = table.partitions
-    s = table.entity_count+1
-    e = table.entity_count+count
+    s = table.entity_count
+    e = table.entity_count+count-1
     parent_id = get_id(parent)
     ref = WeakRef(ecs)
     entities = Vector{Entity}(undef, count)
@@ -79,15 +79,13 @@ function request_entity!(ecs::ECSManager, comp::NamedTuple, count::Int; parent=e
 	signature = get_bits(table, key)
 	allocate_entity(table, count, signature)
     
-    for i in s:e
-    	setrow!(table, i, comp)
-    end
+    setrowrange!(table, s:e, comp)
 
-    r = EntityRange(s,e,0,ref,key,signature)
+    r = EntityRange(s,e,0,ref,key,parent_id,signature)
 	return r
 end
 function request_entity!(ecs::ECSManager, key::Tuple, count::Int; parent=ecs)
-	table = ecs.table
+	table = get_table(ecs)
 	partitions = table.partitions
     s = table.entity_count+1
     e = table.entity_count+count
@@ -108,7 +106,7 @@ end
 This remove an entity from the world.
 """
 function remove_entity!(ecs::ECSManager, e::Entity)
-	table = ecs.table
+	table = get_table(ecs)
 	swap_remove!(table, e)
 	e.world = WeakRef()
 end
@@ -117,7 +115,7 @@ end
 
 """
 function attach_component(ecs::ECSManager, e::Entity, c::AbstractComponent)
-	table = ecs.table
+	table = get_table(ecs)
 	symb = to_symbol(c)
 	if !(symb in e.components)
 		symb = to_symbol(c)
@@ -131,7 +129,7 @@ function attach_component(ecs::ECSManager, e::Entity, c::AbstractComponent)
 end
 
 function detach_component(ecs::ECSManager, e::Entity, T::Type)
-	table = ecs.table
+	table = get_table(ecs)
 	symb = to_symbol(c)
 	if symb in e.components
 		comp = filter(c -> c != symb, e.components)

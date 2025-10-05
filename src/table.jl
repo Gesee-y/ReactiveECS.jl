@@ -36,6 +36,7 @@ mutable struct EntityRange
 	init::Int
 	world::WeakRef
 	const key::Tuple
+	const parent_id::Int
 	const signature::UInt128
 end
 
@@ -191,6 +192,25 @@ function setrow!(t::ArchTable, i::Int, c::AbstractComponent)
 end
 
 """
+    setrowrange!(t::ArchTable, r::UnitRange{Int}, data)
+
+This set a given range of a table with the given `data` which is a dictionnary or a named tuple.
+"""
+function setrowrange!(t::ArchTable, r::UnitRange{Int}, data)
+	columns::Dict{Symbol, TableColumn} = t.columns
+	key = keys(data)
+	vals = values(data)
+	@inbounds for j in eachindex(key)
+	    k = key[j]
+	    v = vals[j]
+	    vec = getfield(columns[k],:data)
+	    @threads for i in r
+	    	vec[i] = v
+	    end
+	end
+end
+
+"""
     allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 
 This will allocate `n` entities in the table `t`. More precisely for the partition of the given `archetype`
@@ -204,11 +224,11 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 	# If the partition fot that archetype doesn't yet exist
 	if !haskey(partitions, archetype)
 		# Just creating a new partition
-		partition = TablePartition(TableRange[TableRange(t.entity_count+1,t.entity_count+n, n)], Int[])
+		partition = TablePartition(TableRange[TableRange(t.row_count+1,t.row_count+n, n)], Int[])
     	partitions[archetype] = partition # And creating that new archetype
 
-        resize!(t, length(t.entities)+n)
-    	push!(intervals, t.entity_count+1:t.entity_count+n)
+        push!(intervals, t.row_count+1:t.row_count+n)
+        resize!(t, length(t.entities)+n+1)
         t.entity_count += n
     	
         return intervals
@@ -228,7 +248,7 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 		size = zone.size
 
 		# The number of entities needed to fill this
-		to_fill = size - length(zone)
+		to_fill = size - length(zone) 
 		v = clamp(m,0,to_fill)
 
 		# If there are more entities to add than space available, then that zone is filled
@@ -245,10 +265,10 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
     # If after all that there is still some entities to add
 	if m > 0
 		# We create a new range for it with the given offset
-		push!(zones, TableRange(t.entity_count+1, t.entity_count+m+offset, m+offset))
+		push!(zones, TableRange(t.row_count+1, t.row_count+m+offset, m+offset))
 		push!(part_to_fill, length(zones)) # We add this new zone as to be filled
 	    
-	    nsize = length(t.entities)+m
+	    nsize = length(t.entities)+m+offset
 		resize!(t, nsize) # Finally we just resize our table
 	end
 
@@ -482,7 +502,7 @@ get_range(t::TableRange)::UnitRange{Int64} = t.s:t.e
 Base.length(t::TableRange) = clamp(t.e - t.s,0,t.size)
 Base.firstindex(t::TableRange) = t.s
 Base.lastindex(t::TableRange) = t.e
-Base.getindex(t::TableRange,i::Int) = 0 <= i <= length(t)+1 ? t.s+i-1 : throw(BoundsError(t,i))
+Base.getindex(t::TableRange,i::Int) = t.s <= i <= t.e ? i : throw(BoundsError(t,i))
 Base.in(t::TableRange, i::Int) = t.s <= i <= t.e
 Base.in(t::TableRange, e::Entity) = get_id(e)[] in t
 

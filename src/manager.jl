@@ -20,7 +20,7 @@ This represent the result of a query. `masks` is all the mask that represent the
 """
 mutable struct Query
     masks::Vector{NTuple{2, UInt128}}         # Bitmasks to match
-    partitions::Vector{TablePartition}               # WeakRefs to the partitions
+    partitions::Vector{Tuple{WeakRef,TablePartition}}  # WeakRefs to the partitions
 end
 
 """
@@ -39,13 +39,15 @@ macro query(world_expr, cond_expr)
     cond = QuoteNode(cond_expr)
 
     quote
-        bitpos = $(world).table.columns
+        tables = get_tables($(world))
+        bitpos = $(world).components_ids
         mask,exclude = _to_mask(bitpos,$cond)
-
-        matching_parts = TablePartition[]
-        for (arch_mask, part) in $(world).table.partitions
-            if ((arch_mask & mask) == mask) && (arch_mask & exclude) == arch_mask
-                push!(matching_parts, part)
+        matching_parts::Vector{Tuple{WeakRef,TablePartition}} = Tuple{WeakRef,TablePartition}[]
+        for table in values(tables)
+            for (arch_mask, part) in table.partitions
+                if ((arch_mask & mask) == mask) && (arch_mask & exclude) == arch_mask
+                    push!(matching_parts, (WeakRef(table),part))
+                end
             end
         end
 
@@ -77,8 +79,11 @@ struct SysToken end
 
 mutable struct ECSManager
 	entities::Vector{Optional{Entity}}
-	table::ArchTable # Contain all the data
-	root::Vector{Int}
+	tables::Dict{Symbol,ArchTable} # Contain all the data
+	main::Symbol
+    components_ids::Dict{Symbol, Int}
+    bitpos::Int
+    root::Vector{Int}
 	queries::Dict{AbstractSystem, Query}
 	logger::LogTracer
 	sys_count::Atomic{Int}
@@ -87,8 +92,9 @@ mutable struct ECSManager
 
 	## Constructor
 
-	ECSManager() = new(Vector{Optional{Entity}}(), ArchTable{UInt128}(), Int[], Dict{AbstractSystem, Query}(),
-		LogTracer(), Atomic{Int}(0), Atomic{Int}(0), Condition())
+	ECSManager() = new(Vector{Optional{Entity}}(), Dict{Symbol,ArchTable}(:main => ArchTable{UInt128}()), :main, 
+        Dict{Symbol, Int}(), 1, Int[], Dict{AbstractSystem, Query}(), LogTracer(), Atomic{Int}(0), Atomic{Int}(0), 
+        Condition())
 end
 
 
@@ -96,6 +102,8 @@ end
 
 get_id(ecs::ECSManager) = -1
 get_lock(ecs::ECSManager, symb::Symbol, path) = get_lock(get_component(ecs, symb), path)
+get_tables(ecs::ECSManager) = ecs.tables
+get_table(ecs::ECSManager) = ecs.tables[ecs.main]
 
 """
     dispatch_data(ecs)
@@ -123,7 +131,13 @@ blocker(v::Vector{Task}) = fetch.(v)
 Register the a component in the manager `ecs.
 This will create a column for that component in a world.
 """
-register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = register_component!(ecs.table, T)
+register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = begin 
+    register_component!(get_table(ecs), T)
+    if !haskey(ecs.components_ids, Symbol(T))
+        ecs.components_ids[Symbol(T)] = ecs.bitpos
+        ecs.bitpos += 1
+    end
+end
 
 """
     get_component(ecs::ECSManager, s::Symbol)
@@ -131,7 +145,7 @@ register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = register_co
 This returns the SoA of a component of name `s`.
 """
 get_component(ecs::ECSManager, s::Symbol) = begin 
-    w = ecs.table.columns
+    w = get_table(ecs).columns
     return w[s]
 end
 get_component(ecs::ECSManager, T::Type) = get_component(ecs, to_symbol(type))
@@ -169,7 +183,7 @@ end
 
 function _to_mask(bitpos, expr, exclude=typemax(UInt128))
     if expr isa Symbol
-        return (UInt128(1) << get_id(bitpos[expr]), exclude)
+        return (UInt128(1) << bitpos[expr], exclude)
     elseif expr isa Expr
         if expr.head === :call
             op, args... = expr.args

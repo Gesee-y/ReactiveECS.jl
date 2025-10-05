@@ -94,7 +94,7 @@ function run_system!(@nospecialize(system::AbstractSystem))
     logdata = system.logdata
     # The system will run as an asynchronous task
     # We can stop it at anytime with system.active
-	@spawn while system.active
+	@async while system.active
 		batch = take!(system.flow)
 
 		try
