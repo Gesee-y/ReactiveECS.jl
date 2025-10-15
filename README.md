@@ -50,6 +50,7 @@ end
 # Define system
 @system MoveSystem begin
     dt::Float32
+end
 
 function ReactiveECS.run!(world, sys::MoveSystem, query::Query)
     positions = get_component(world, :Position)  # Get all Position components
