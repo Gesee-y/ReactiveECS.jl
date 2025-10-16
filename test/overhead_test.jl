@@ -50,14 +50,11 @@ println("partitions created: $(length(world.tables[:main].partitions))")
 println("")
 println("Quering for $QUERY_COUNT components")
 
-q1 = @query(world, T1)
-q2 = @query(world, T2)
-q3 = @query(world, T3)
+print("Time to query: ")
+@btime @query($world, T1 & T2 & T3)
+q1 = @query(world, T1 & T2 & T3)
 
-s = 0
 function measure_query(query)
-	global s
-	s = 0
 	res = @benchmark begin
 	    entity_sum = 0
 	    entity_count = 0
@@ -66,7 +63,6 @@ function measure_query(query)
 		    	entity_sum += i
 		        entity_count += 1
 		    end
-		    r = entity_sum + entity_count
 		end
 		r = entity_sum + entity_count
 	end
@@ -75,8 +71,4 @@ function measure_query(query)
 end
 
 res = measure_query(q1)
-res2 = measure_query(q2)
-res3 = measure_query(q3)
 println(res)
-println(res2)
-println(res3)
