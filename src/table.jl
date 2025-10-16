@@ -307,7 +307,7 @@ function addtopartition(t::ArchTable{T}, archetype::Integer, size=DEFAULT_PARTIT
     zones::Vector{TableRange} = partition.zones
     zone = zones[end]
     to_fill::Vector{Int} = partition.to_fill
-    id = t.entity_count+1
+    id = t.row_count+1
 
 
     # if there is some zone to fill
@@ -321,7 +321,6 @@ function addtopartition(t::ArchTable{T}, archetype::Integer, size=DEFAULT_PARTIT
     	id >= size && pop!(to_fill)
     else
     	# We create a new range and add it to the one to be filled
-    	zone[end] == t.entity_count
     	push!(zones, TableRange(id,id,size))
     	push!(to_fill, length(zones))
     	resize!(t, id+size-1)
@@ -473,14 +472,14 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 	if !isempty(new_to_fill)
 		fill_id = to_fill[end]
 		new_zone = new_zones[fill_id]
-		id = new_zone.e .+1
+		id = new_zone.e +1
 		new_zone.e += 1
 		e.ID[] = id
 		swap!(t,i,id;fields=e.components)
 	else
-		e.ID[] = t.entity_count+1
-		push!(new_zones, TableRange(t.entity_count+1, t.entity_count+1, DEFAULT_PARTITION_SIZE))
-		swap!(t,i,t.entity_count+1)
+		e.ID[] = t.row_count+1
+		push!(new_zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
+		swap!(t,i,t.row_count+1)
 		
 		push(new_to_fill, length(new_zones))
 	end

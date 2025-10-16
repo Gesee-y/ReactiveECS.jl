@@ -2,6 +2,7 @@
 
 include(joinpath("..","src","ReactiveECS.jl"))
 using .ReactiveECS
+using BenchmarkTools
 
 const MILLION = 1_000_000
 const BILLION = MILLION*1000
@@ -48,3 +49,27 @@ println("entities created: $ENTITY_COUNT ($COMPONENT_COUNT randomized components
 println("partitions created: $(length(world.tables[:main].partitions))")
 println("")
 println("Quering for $QUERY_COUNT components")
+
+q1 = @query(world, T1)
+q2 = @query(world, T2)
+q3 = @query(world, T3)
+
+function measure_query(query)
+	@benchmark begin
+	    entity_sum = 0
+	    entity_count = 0
+		@foreachrange $query begin
+		    for i in range
+		    	entity_sum += i
+		        entity_count += 1
+		    end
+		end
+	end
+end
+
+res = measure_query(q1)
+res2 = measure_query(q2)
+res3 = measure_query(q3)
+println(res)
+println(res2)
+println(res3)
