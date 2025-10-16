@@ -6,7 +6,7 @@ using BenchmarkTools
 
 const MILLION = 1_000_000
 const BILLION = MILLION*1000
-const ENTITY_COUNT = 255
+const ENTITY_COUNT = 255*100
 const COMPONENT_COUNT = 10
 const QUERY_COUNT = 3
 const SAMPLE_COUNT = 100
@@ -54,8 +54,11 @@ q1 = @query(world, T1)
 q2 = @query(world, T2)
 q3 = @query(world, T3)
 
+s = 0
 function measure_query(query)
-	@benchmark begin
+	global s
+	s = 0
+	res = @benchmark begin
 	    entity_sum = 0
 	    entity_count = 0
 		@foreachrange $query begin
@@ -63,8 +66,12 @@ function measure_query(query)
 		    	entity_sum += i
 		        entity_count += 1
 		    end
+		    r = entity_sum + entity_count
 		end
+		r = entity_sum + entity_count
 	end
+
+	return res
 end
 
 res = measure_query(q1)
