@@ -51,7 +51,7 @@ macro query(world_expr, cond_expr)
             end
         end
 
-        Query([(mask, exclude)], matching_parts)
+        Query(NTuple{2, UInt128}[(mask, exclude)], matching_parts)
     end
 end
 
