@@ -250,8 +250,8 @@ By default, the logs aren't directly written to a file. You should use `write!(i
     │  ECSManager   │
     └─────┬─────────┘
           │ dispatch_data()
-     ┌────┴────┬──────────┬
-     │         │          │
+     ┌────┴─────┬
+     │          │         
     ┌▼────────┐┌▼─────────┐
     │ Physic  ││ Print    │
     │ System  ││ System   │

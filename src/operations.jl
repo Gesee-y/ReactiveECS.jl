@@ -4,7 +4,7 @@
 
 ######################################################## Export #########################################################
 
-export create_entity!, request_entity!, remove_entity!
+export create_entity!, request_entity!, remove_entity!, attach_component, detach_component
 
 ######################################################### Core ##########################################################
 
@@ -114,17 +114,17 @@ end
 """
 
 """
-function attach_component(ecs::ECSManager, e::Entity, c::AbstractComponent)
+function attach_component(ecs::ECSManager, e::Entity, c::T) where T <: AbstractComponent
 	table = get_table(ecs)
 	symb = to_symbol(c)
 	if !(symb in e.components)
 		symb = to_symbol(c)
 		comp = (e.components..., symb)
 		signature = e.archetype | get_bits(table, symb)
-		change_archetype(table, e, signature)
-		setrow!(table, get_id(e), c)
+		change_archetype(table, e, signature; fields=comp)
+		setrow!(table, get_id(e)[], c)
 		e.components = comp
-		e.signature = signature
+		e.archetype = signature
 	end
 end
 

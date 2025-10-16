@@ -33,7 +33,7 @@ abstract type AbstractSystem end
 const Optional{T} = Union{Nothing, T}
 
 # Mutable Ints
-include("mutable_int.jl")
+include("mutable_ints.jl")
 # Entities management
 include("entity.jl")
 # Table representation

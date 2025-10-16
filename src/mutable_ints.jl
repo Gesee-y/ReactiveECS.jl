@@ -41,7 +41,7 @@ const MInt128 = MInt{Int128}
 
 Base.Unsigned(n::MInt) = n
 Base.getindex(n::MInt) = getfield(n, :value)
-Base.setindex(n::MInt, v::Integer) = setfield(n, :value, v)
+Base.setindex!(n::MInt, v::Integer) = setfield!(n, :value, v)
 Base.isequal(n1::MInt, n2::MInt) = n1[] == n2[]
 Base.isless(n1::MInt, n2::MInt) = n1[] < n2[]
 Base.flipsign(n1::MInt, n2::MInt) = MInt(flipsign(n1[], n2[]))

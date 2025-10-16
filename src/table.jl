@@ -287,10 +287,10 @@ function createpartition(t::ArchTable, archetype::Integer, size=DEFAULT_PARTITIO
 	partitions = t.partitions
 	if !haskey(partitions, archetype)
 		# We initialize our partition with the range and we immediately set that range as to be filled
-		partition = TablePartition(TableRange[TableRange(t.entity_count+1,t.entity_count, size)], Int[1])
+		partition = TablePartition(TableRange[TableRange(t.row_count+1,t.row_count, size)], Int[1])
     	partitions[archetype] = partition
 
-    	resize!(t, t.entity_count+size)
+    	resize!(t, t.row_count+size)
     end
 end
 
@@ -431,7 +431,10 @@ end
     for f in fields
     	type = fieldtype(T, f)
     	data = gensym()
-        push!(swaps, :($data::Vector{$type} = arch.$f; $data[i],  $data[j] =  $data[j],  $data[i]))
+        push!(swaps, quote 
+        	$data::Vector{$type} = arch.$f
+        	$data[i],  $data[j] =  $data[j],  $data[i]
+        end)
     end
 
     return expr
@@ -443,9 +446,12 @@ end
 Move the entity `e` of the table `t` from his archetype to a new `archetype`.
 This function assume `t` contain a partition for `archetype` else it will panic.
 """
-function change_archetype(t::ArchTable, e::Entity, archetype::Integer)
+function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.components)
 
 	# Relevant data neatly organized
+	if !haskey(t.partitions, archetype)
+		createpartition(t, archetype)
+	end
     new_partition = t.partitions[archetype]
 	partition = t.partitions[e.archetype]
     new_to_fill = new_partition.to_fill
@@ -459,14 +465,15 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer)
 
     # We first something like a deletion to the entity
     # Taking it to the last position and shrinking the range
-    swap!(t,e,entities[j])
+    
+    swap!(t,i,j,fields=fields)
 	zone.e -= 1
 	
 	# Now if there is some space to fill in the new archetype's partition
 	if !isempty(new_to_fill)
 		fill_id = to_fill[end]
 		new_zone = new_zones[fill_id]
-		id = new_zone[end] +1
+		id = new_zone.e .+1
 		new_zone.e += 1
 		e.ID[] = id
 		swap!(t,i,id;fields=e.components)
