@@ -134,8 +134,8 @@ Also memory behavior isn't as simple as it may seems. This [benchmark](https://g
 | Entity count | Memory in use| Memory/entity |
 |--------------|--------------|---------------|
 |  255         |    4812 kb   |    ~18Kb      |
-|  25500       |    5134 kb   |    ~200Kb     |
-|  255000      |    17204 kb  |    ~69Kb      |
+|  25500       |    5134 kb   |    ~200b     |
+|  255000      |    17204 kb  |    ~69b      |
 
 Meaning a huge amount is allocated at first then is mostly just filled afterward.
 
