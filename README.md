@@ -119,9 +119,9 @@ How does it work?
 - Entities are just rows in the table.  
 
 The table is **dense**, ensuring maximum performances when iterating on it.
-This layout, however, has a side effect: every entity has every component, even unused ones.  
+This layout, however, has a side effect: every entity has every component, even unused ones... And that's what empowers RECS. 
 
-This raises two main concerns:  
+So let's look at your probable concerns: 
 
 - **How can we represent archetypes?**  
   By using **partitions**. Continuous ranges within partitions represent entities that use the same set of components. By default a partition is about 4096 entities, once filled a new one is allocated. Archetypes here are symbolic — entities still technically have all components, but partitions let us group those exclusively in use. This mimic [Flecs](https://github.com/SanderMertens/flecs)'s archetypes table, ensuring memory locality and cache friendliness. It also makes operations simpler than in Archetype ECS, adding an entity is just writing a row, removing is just overriding a row, adding/removing a component is 2 override.
