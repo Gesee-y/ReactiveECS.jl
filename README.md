@@ -152,6 +152,8 @@ This layout offers several advantages:
 - **Fused updates**: Sunce every system can accurately access any data, you can easily merge multiple system into one for an unified update.
 - **Fast structural changes, fast iterations** 
 
+> This layout can be considered as a generalization of the common memory model (archetypes and sparse sets). By explicitly creating a table for each components combination, you make an archetype ECS. By adding an indexing layer above the tables, you make a sparse set ECS
+
 ---
 
 ## Performances
