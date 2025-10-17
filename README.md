@@ -149,6 +149,8 @@ This layout offers several advantages:
 - **Stable once peak memory is reached**: At that point the ECS endlessly reuse table slots and no more allocate or desallocate.
 - **No GC**: Since memory is constantly reused instead of freed,the GC is never triggered which means no stutter during intense gameplay.
 - **Less pointer chasing**: Compared to archetypal ECS designs, there are fewer tables, which reduces indirection and improves cache locality.
+- **Fused updates**: Sunce every system can accurately access any data, you can easily merge multiple system into one for an unified update.
+- **Fast structural changes, fast iterations**
 
 ---
 
