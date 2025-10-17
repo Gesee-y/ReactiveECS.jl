@@ -511,7 +511,6 @@ Base.lastindex(t::TableRange) = t.e
 Base.getindex(t::TableRange,i::Int) = t.s <= i <= t.e ? i : throw(BoundsError(t,i))
 Base.in(t::TableRange, i::Int) = t.s <= i <= t.e
 Base.in(t::TableRange, e::Entity) = get_id(e)[] in t
-
 #################################################### Helpers ###########################################################
 _print(f, io::IO, v::TableColumn) = f(io, getfield(v, :data))
 _add_zone(r::UnitRange, n::Int) = r[begin]:(r[end]+n)

@@ -7,7 +7,7 @@ using LoopVectorization
 
 const MILLION = 1_000_000
 const BILLION = MILLION*1000
-const ENTITY_COUNT = 255*100
+const ENTITY_COUNT = 25500
 const COMPONENT_COUNT = 10
 const QUERY_COUNT = 3
 const SAMPLE_COUNT = 100
@@ -62,15 +62,12 @@ t3 = get_component(world, :T3).x
 function measure_query(query)
 	res = @benchmark begin
 	    entity_sum = 0
-	    entity_count = 0
 	    
 		@foreachrange $query begin
 		    for i in range
 		    	entity_sum += $t1[i] + $t2[i] + $t3[i]
-		        entity_count += 1
 		    end
 		end
-		r = entity_sum + entity_count
 	end
 
 	return res
