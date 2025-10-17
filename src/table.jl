@@ -475,6 +475,9 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 		id = new_zone.e +1
 		new_zone.e += 1
 		e.ID[] = id
+		if id > t.row_count
+			resize!(t, id)
+		end
 		swap!(t,i,id;fields=e.components)
 	else
 		e.ID[] = t.row_count+1
