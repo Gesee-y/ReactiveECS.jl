@@ -150,7 +150,7 @@ This layout offers several advantages:
 - **No GC**: Since memory is constantly reused instead of freed,the GC is never triggered which means no stutter during intense gameplay.
 - **Less pointer chasing**: Compared to archetypal ECS designs, there are fewer tables, which reduces indirection and improves cache locality.
 - **Fused updates**: Sunce every system can accurately access any data, you can easily merge multiple system into one for an unified update.
-- **Fast structural changes, fast iterations**
+- **Fast structural changes, fast iterations** 
 
 ---
 
@@ -184,6 +184,10 @@ The foolowing throughputs have been obtained on an Intel core i5 with 4 core.
   - Without initialization: 6B ent/sec
 - **A move System (just pos += vel)**: 16.33M ent/frame
 - **Fragmentation overhead with 10 randomized components across 25500 entities**: 15ns (see [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/test/overhead_test.jl)
+
+> In contrast with traditional ECS whose avoids the worst case, RECS constantly run in it (max possible memory usage, max possible fragmentation, etc). This mean it would be hard to have worse than the performances obtained in the benchmarks
+
+---
 
 ## Systems variant
 
