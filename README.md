@@ -1,6 +1,6 @@
 # ReactiveECS.jl v2: Reconciling Performance and Flexibility 
 
-A high-performance, modular, event-driven ECS (Entity-Component-System) architecture written in Julia. Designed for game engines, simulations, or any data-oriented architecture needing maximum performances with extreme flexibility.
+A high-performance, modular, event-driven and memory-stable ECS (Entity-Component-System) architecture written in Julia. Designed for game engines, simulations, or any data-oriented architecture needing maximum performances with extreme flexibility.
 
 It's already used by the highly flexible 2D/3D game engine [Cruise.jl](https://github.com/Gesee-y/Cruise.jl) one of his core architecture 
 
@@ -23,7 +23,7 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 ## Characteristics  
 
 - **Fast**: The fastest ECS in Julia, already outperforming some well-established C/C++ ECS. See [this](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
-- **Maximum memory locality**: Partitions makes sure entities are tighly packed in memory, allowing vectorization.
+- **Maximum memory locality**: Using partitions which are range of data, it makes sure entities are tighly packed in memory, allowing vectorization.
 - **Flexible**: Add, remove, or chain systems at runtime, you can even inject a system in the middle of a chain.
 - **Changes tracking**: Optionally watch changes on a field of component.
 - **Granular concurrency safety**: Provides specialized tools like **HierarchicalLock** to help you cleanly manage concurrency.  
@@ -33,6 +33,7 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 - **Allow lazy operations**: Such as lazy entities creation.
 - **Entities hierarchy**: You are allowed to build parent-child relationships betwenn entities.
 - **Multiple components per entities**: Through multiple tables and foreign keys.
+- **No memory movements once stable**: Once the ECS reached its peak, no more allocations or desallocations.
 
 ---
 
@@ -128,12 +129,25 @@ This raises two main concerns:
 - **Memory waste**  
   This layout does consume more memory than archetype-based ECS. To mitigate this, RECS introduces **multiple tables**.  
   Each table is specialized for a subset of components (e.g., an `ENEMY` table with enemy-specific components, a `BULLET` table, or a `PROPS` table). Queries then work by intersecting partitions across these tables, ensuring efficient memory use.
+Also memory behavior isn't as simple as it may seems. This [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/test/mem_overhead_test.jl) has been realized:
+
+| Entity count | Memory in use| Memory/entity |
+|--------------|--------------|---------------|
+|  255         |    4812 kb   |    ~18Kb      |
+|  25500       |    5134 kb   |    ~200Kb     |
+|  255000      |    17204 kb  |    ~69Kb      |
+
+Meaning a huge amount is allocated at first then is mostly just filled afterward.
+
+---
 
 This layout offers several advantages:
 
 - **Easy parallelism**: Partitions are compact chunks of entities, making them naturally suited for parallel processing.  
 - **No optionals**: Systems always see all components. They can simply use masks to skip entities without the required components, avoiding costly branching.  
-- **Reduced memory movement**: Adding an entity just means writing a row. Removing one is a swap-remove. Adding or removing a component only changes the partition, not the data layout.  
+- **Reduced memory movement**: Adding an entity just means writing a row. Removing one is a swap-remove. Adding or removing a component only changes the partition, not the data layout.
+- **Stable once peak memory is reached**: At that point the ECS endlessly reuse table slots and no more allocate or desallocate.
+- **No GC**: Since memory is constantly reused instead of freed,the GC is never triggered which means no stutter during intense gameplay.
 - **Less pointer chasing**: Compared to archetypal ECS designs, there are fewer tables, which reduces indirection and improves cache locality.
 
 ---
@@ -149,7 +163,7 @@ This topic is discussed in more detail [here](https://github.com/Gesee-y/Reactiv
 
 Benchmarks have already been conducted against [Overseer.jl](https://github.com/louisponet/Overseer.jl) in two scenarios:
 
-- **One system translating 100k entities with 1 component**:  
+- **One system translating 100k entities with 1 component** on an Intel Pentium T4400:  
   - RECS: **163µs** with vectorization, **623µs** without  
   - Overseer: **2.7ms**  
 
@@ -158,6 +172,16 @@ Benchmarks have already been conducted against [Overseer.jl](https://github.com/
   - Overseer: **12ms**  
 
 You can read the full [article here](https://discourse.julialang.org/t/reactiveecs-jl-v2-0-0-breaking-changes-for-massive-performance-boosts/130564/4).
+
+The foolowing throughputs have been obtained on an Intel core i5 with 4 core.
+
+- **Spawning entities with 3 components**
+  - With components initialization 
+    - Monothread: 71.4M ent/sec 
+    - Multithread: 710M ent/sec 
+  - Without initialization: 6B ent/sec
+- **A move System (just pos += vel)**: 16.33M ent/frame
+- **Fragmentation overhead with 10 randomized components across 25500 entities**: 15ns (see [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/test/overhead_test.jl)
 
 ## Systems variant
 
