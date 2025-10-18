@@ -58,6 +58,7 @@ end
 macro foreachrange(query, body)
     return esc(quote
         for partition in $query
+            TABLE = partition[1].value
             zones::Vector{TableRange} = partition[2].zones
 
             for zone in zones
