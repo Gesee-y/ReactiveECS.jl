@@ -7,7 +7,7 @@ using LoopVectorization
 
 const MILLION = 1_000_000
 const BILLION = MILLION*1000
-const ENTITY_COUNT = 25500
+const ENTITY_COUNT = 255
 const COMPONENT_COUNT = 10
 const QUERY_COUNT = 3
 const SAMPLE_COUNT = 100

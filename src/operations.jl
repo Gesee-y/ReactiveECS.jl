@@ -107,7 +107,7 @@ This remove an entity from the world.
 """
 function remove_entity!(ecs::ECSManager, e::Entity)
 	table = get_table(ecs)
-	swap_remove!(table, e)
+	override_remove!(table, e)
 	e.world = WeakRef()
 end
 

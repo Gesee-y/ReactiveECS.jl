@@ -397,6 +397,56 @@ function swap_remove!(t::ArchTable, e::Entity)
 	end
 end
 
+function override_remove!(t::ArchTable, e::Entity)
+	partition = t.partitions[e.archetype]
+	to_fill = partition.to_fill 
+	entities = t.entities
+	zones = partition.zones
+
+	i = get_id(e)[]
+    
+    # If there are some zone to fill
+	if !isempty(to_fill)
+		fill_id = to_fill[end]
+
+		j = zones[fill_id][end]
+
+        # If the last index is the same as i then we can just shrink the zone
+		if i == j
+			zones[fill_id].e -= 1
+		    entities[i] = nothing
+		else
+			# We check this in case the entity is undefined du to some resizing
+			if !isdefined(entities, j)
+				entities[i] = Entity(i, e.archetype, e.components, e.world, -1, Int[])
+				entities[j] = nothing
+		    else
+			    entities[j], entities[i] = nothing, entities[j]
+			    e.ID[], entities[i].ID[] = j, i
+			
+			    override!(t, i, j; fields=e.components)
+		    end
+		end
+
+        # If the zone is filled
+		if length(zones[fill_id]) < 1
+			pop!(zones)
+			pop!(to_fill)
+		end
+	else
+		partition.zones[end].s -= 1
+		entities[i] = nothing
+		push(to_fill, length(partition.zones))
+	end
+
+    t.entity_count -= 1
+
+	for ids in e.children
+		child = entities[ids[]]
+		override_remove!(child)
+	end
+end
+
 """
     swap!(t::ArchTable, i::Int, j::Int; fields=())
 
@@ -439,6 +489,33 @@ end
     return expr
 end
 
+
+function override!(t::ArchTable, i::Int, j::Int; fields=())
+    for f in fields
+    	arch = t.columns[f]
+    	override!(arch, i, j)
+    end
+end
+function override!(t::ArchTable, e1::Entity, e2::Entity)
+	i, j = get_id(e1)[], get_id(e2)[]
+	override!(t, i, j, fields=e1.components)
+	e1.ID[], e2.ID[] = -1, i
+end
+@generated function override!(arch::TableColumn{T}, i::Int, j::Int) where T
+    fields=fieldnames(T)
+    expr = Expr(:block)
+    swaps = expr.args
+    for f in fields
+    	type = fieldtype(T, f)
+    	data = gensym()
+        push!(swaps, quote 
+        	$data::Vector{$type} = arch.$f
+        	$data[i] = $data[j]
+        end)
+    end
+
+    return expr
+end
 """
     change_archetype(t::ArchTable, e::Entity, archetype::Integer)
 
@@ -462,12 +539,7 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 	j = zone[end]
 	i = get_id(e)[]
 
-    # We first something like a deletion to the entity
-    # Taking it to the last position and shrinking the range
     
-    swap!(t,i,j,fields=fields)
-	zone.e -= 1
-	
 	# Now if there is some space to fill in the new archetype's partition
 	if !isempty(new_to_fill)
 		fill_id = to_fill[end]
@@ -478,14 +550,20 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 		if id > t.row_count
 			resize!(t, id)
 		end
-		swap!(t,i,id;fields=e.components)
+		override!(t,id,i;fields=e.components)
 	else
 		e.ID[] = t.row_count+1
 		push!(new_zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
-		swap!(t,i,t.row_count+1)
+		override!(t,t.row_count+1, i)
 		
 		push(new_to_fill, length(new_zones))
 	end
+
+	# We first something like a deletion to the entity
+    # Taking it to the last position and shrinking the range
+    
+	zone.e -= 1
+	override!(t,i,j,fields=fields)
 end
 
 function get_entity(r::EntityRange, i::Integer)
