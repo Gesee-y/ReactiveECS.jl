@@ -5,54 +5,54 @@
 ReactiveECS: Unoptimized (recreating a component at each loop)
 
 Benchmarking with 100 entities...
-Mean time per entity: 2.4012964813278006 ns
-BenchmarkTools.Trial: 10000 samples with 482 evaluations per sample.
- Range (min … max):  224.394 ns …  1.818 μs  ┊ GC (min … max): 0.00% … 0.00%
- Time  (median):     231.766 ns              ┊ GC (median):    0.00%
- Time  (mean ± σ):   240.130 ns ± 26.263 ns  ┊ GC (mean ± σ):  0.00% ± 0.00%
+Mean time per entity: 3.8088391203438388 ns
+BenchmarkTools.Trial: 10000 samples with 349 evaluations per sample.
+ Range (min … max):  242.046 ns …  2.702 μs  ┊ GC (min … max): 0.00% … 0.00%
+ Time  (median):     376.642 ns              ┊ GC (median):    0.00%
+ Time  (mean ± σ):   380.884 ns ± 28.713 ns  ┊ GC (mean ± σ):  0.00% ± 0.00%
 
-  ▅▅▆█▅▅▅▃▂▃▁▁▂▁▁▃▃▂▄▃▃▃▄▃▃▄▂▁▂▁▁▂▁▁▂▁▂▃▂▁▁▂                   ▂
-  ██████████████████████████████████████████▇▇█▆▆▇▆▆█▆▆▇▆▆█▆▆▇ █
-  224 ns        Histogram: log(frequency) by time       289 ns <
+                                     ▂▄▄▅██▇▆▅▃▁        ▁▂▂▂▂▂ ▂
+  ▄▃▁▃▁▃▃▁▁▃▁▁▁▁▁▁▁▃▃▁▁▁▁▁▁▁▁▁▁▁▁▅▄▅▇█████████████▆▇▇▇▇███████ █
+  242 ns        Histogram: log(frequency) by time       441 ns <
 
  Memory estimate: 0 bytes, allocs estimate: 0.
 
 Benchmarking with 1000 entities...
-Mean time per entity: 2.051818879999999 ns
-BenchmarkTools.Trial: 10000 samples with 10 evaluations per sample.
- Range (min … max):  1.934 μs …   5.132 μs  ┊ GC (min … max): 0.00% … 0.00%
- Time  (median):     2.013 μs               ┊ GC (median):    0.00%
- Time  (mean ± σ):   2.052 μs ± 211.260 ns  ┊ GC (mean ± σ):  0.00% ± 0.00%
+Mean time per entity: 3.927517055555555 ns
+BenchmarkTools.Trial: 10000 samples with 9 evaluations per sample.
+ Range (min … max):  2.193 μs …  13.246 μs  ┊ GC (min … max): 0.00% … 0.00%
+ Time  (median):     3.904 μs               ┊ GC (median):    0.00%
+ Time  (mean ± σ):   3.928 μs ± 329.787 ns  ┊ GC (mean ± σ):  0.00% ± 0.00%
 
-    ▇ █ ▃  ▃ ▄ ▁ ▁                                 ▁  ▁     ▁ ▂
-  ▆▁█▁█▁█▁▁█▁█▁█▁█▁▁█▁▇▁▅▁▃▁▁▅▁▃▁▄▁▁▄▁▄▁▄▁▁▁▁▃▁▃▁█▁█▁▁█▁▇▁▇▁█ █
-  1.93 μs      Histogram: log(frequency) by time      2.96 μs <
+                                                  ▆ █▆▂▃      ▁
+  ▃▁▁▃▁▁▁▁▃▁▁▃▁▁▁▃▁▁▁▁▃▁▁▃▁▁▁▁▁▃▃▁▁▄▃▃▁▄▃▅▁▃▃▄▄▁▁██▁████▁█▇▇▇ █
+  2.19 μs      Histogram: log(frequency) by time      4.21 μs <
 
  Memory estimate: 16 bytes, allocs estimate: 1.
 
 Benchmarking with 10000 entities...
-Mean time per entity: 2.0574527432333576 ns
-BenchmarkTools.Trial: 8202 samples with 1 evaluation per sample.
- Range (min … max):  19.342 μs … 48.553 μs  ┊ GC (min … max): 0.00% … 0.00%
- Time  (median):     20.131 μs              ┊ GC (median):    0.00%
- Time  (mean ± σ):   20.575 μs ±  2.547 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
+Mean time per entity: 4.00230467 ns
+BenchmarkTools.Trial: 10000 samples with 1 evaluation per sample.
+ Range (min … max):  21.316 μs … 126.316 μs  ┊ GC (min … max): 0.00% … 0.00%
+ Time  (median):     39.868 μs               ┊ GC (median):    0.00%
+ Time  (mean ± σ):   40.023 μs ±   4.147 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
 
-  ▃█ █▆ ▄▃ ▂ ▁                       ▁                        ▂
-  ██▁██▁██▁█▁██▁▇▆▁▅▁▅▅▁▆▄▁▆▁▆▆▁▆▅▁█▁█▇▁██▁█▁▆▄▁▆▄▁▄▁▃▃▁▅▃▁▅▃ █
-  19.3 μs      Histogram: log(frequency) by time      33.9 μs <
+                                 ▂▅█▅▃▂                        ▁
+  ▅▄▆▃▄▅▅▅▁▃▄▁▄▄▁▄▄▃▅▃▄▁▄▅▃▄▅▄▅▅▅███████▇█▆▆▅▃▅▄▄▄▃▁▁▃▃▃▃▃▄▃▅▄ █
+  21.3 μs       Histogram: log(frequency) by time      54.1 μs <
 
  Memory estimate: 16 bytes, allocs estimate: 1.
 
 Benchmarking with 100000 entities...
-Mean time per entity: 3.8811750552147237 ns
-BenchmarkTools.Trial: 815 samples with 1 evaluation per sample.
- Range (min … max):  316.975 μs … 577.107 μs  ┊ GC (min … max): 0.00% … 0.00%
- Time  (median):     386.054 μs               ┊ GC (median):    0.00%
- Time  (mean ± σ):   388.118 μs ±  23.305 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
+Mean time per entity: 3.1438468036608533 ns
+BenchmarkTools.Trial: 5791 samples with 1 evaluation per sample.
+ Range (min … max):  263.291 μs … 584.608 μs  ┊ GC (min … max): 0.00% … 0.00%
+ Time  (median):     310.660 μs               ┊ GC (median):    0.00%
+ Time  (mean ± σ):   314.385 μs ±  23.278 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
 
-                        ▂▃▄▂▄▇█▅▃▁    ▁                          
-  ▂▁▁▂▁▁▂▂▂▂▃▂▃▃▃▄▅▄▅▅████████████▇█▇▆█▆▅▄▅▃▃▃▃▁▂▁▂▂▁▂▂▁▂▃▁▁▂▁▂ ▄
-  317 μs           Histogram: frequency by time          467 μs <
+               ▃▆▇███▂                                           
+  ▂▂▂▂▂▂▂▂▂▃▃▄████████▇▅▄▃▃▃▂▂▃▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▁▂▁▂▂▂▂▁▂▂▂▂▂▂ ▃
+  263 μs           Histogram: frequency by time          436 μs <
 
  Memory estimate: 16 bytes, allocs estimate: 1.
-[Finished in 46.1s]
+ [Finished in 39.3s]
