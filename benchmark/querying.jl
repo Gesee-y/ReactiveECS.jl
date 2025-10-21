@@ -5,6 +5,7 @@
 include("..\\src\\ReactiveECS.jl")
 using .ReactiveECS
 using BenchmarkTools
+using LoopVectorization
 
 @component Position begin
     x::Float64
@@ -21,11 +22,7 @@ function setup_world(n_entities::Int)
     register_component!(world, Velocity)
 
     pos, vel = get_component(world, :Position), get_component(world, :Velocity)
-    request_entity!(world, (:Position, :Velocity), n_entities)
-    for i in 1:n_entities
-        pos[i] = Position(i, i*2)
-        vel[i] = Velocity(1, 1)
-    end
+    request_entity!(world, (;Position= (i -> Position(i, i*2)), Velocity=Velocity(1,1)), n_entities)
 
     return (pos.x, pos.y, vel.dx, vel.dy, @query(world, Position & Velocity))
 end
@@ -34,7 +31,7 @@ function benchmark_iteration(n)
     bench = @benchmarkable begin
         x, y, dx, dy, query = data
         @foreachrange query begin
-            @inbounds for i in range
+            @turbo for i in range
                 x[i] += dx[i]
                 y[i] += dy[i]
             end

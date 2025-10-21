@@ -205,7 +205,7 @@ function setrowrange!(t::ArchTable, r::UnitRange{Int}, data)
 	    v = vals[j]
 	    vec = getfield(columns[k],:data)
 	    @threads for i in r
-	    	vec[i] = v
+	    	vec[i] = _value(v, i)
 	    end
 	end
 end
@@ -593,5 +593,8 @@ Base.getindex(t::TableRange,i::Int) = t.s <= i <= t.e ? i : throw(BoundsError(t,
 Base.in(t::TableRange, i::Int) = t.s <= i <= t.e
 Base.in(t::TableRange, e::Entity) = get_id(e)[] in t
 #################################################### Helpers ###########################################################
+
+_value(x::Any, i::Int) = x
+_value(f::Function, i::Int) = f(i)
 _print(f, io::IO, v::TableColumn) = f(io, getfield(v, :data))
 _add_zone(r::UnitRange, n::Int) = r[begin]:(r[end]+n)

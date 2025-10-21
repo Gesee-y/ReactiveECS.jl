@@ -69,8 +69,8 @@ function request_entity!(ecs::ECSManager, comp::NamedTuple, count::Int; parent=e
 	table = get_table(ecs)
 	key = keys(comp)
 	partitions = table.partitions
-    s = table.entity_count
-    e = table.entity_count+count-1
+    s = table.row_count+1
+    e = table.row_count+count
     parent_id = get_id(parent)
     ref = WeakRef(ecs)
     entities = Vector{Entity}(undef, count)
@@ -87,8 +87,8 @@ end
 function request_entity!(ecs::ECSManager, key::Tuple, count::Int; parent=ecs)
 	table = get_table(ecs)
 	partitions = table.partitions
-    s = table.entity_count+1
-    e = table.entity_count+count
+    s = table.row_count+1
+    e = table.row_count+count
     parent_id = get_id(parent)
     ref = WeakRef(ecs)
 
