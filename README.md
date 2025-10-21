@@ -16,7 +16,7 @@ For development version
 
 ```julia
 julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
-````
+```
 
 ---
 

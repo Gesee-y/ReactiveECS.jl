@@ -1,0 +1,59 @@
+-----------------------------------------------
+              Query Pos/Vel
+-----------------------------------------------
+
+Ark results
+
+
+Benchmarking with 100 entities...
+Mean time per entity: 3.3680373987915404 ns
+BenchmarkTools.Trial: 10000 samples with 331 evaluations per sample.
+ Range (min … max):  276.674 ns … 640.408 ns  ┊ GC (min … max): 0.00% … 0.00%
+ Time  (median):     331.532 ns               ┊ GC (median):    0.00%
+ Time  (mean ± σ):   336.804 ns ±  49.105 ns  ┊ GC (mean ± σ):  0.00% ± 0.00%
+
+  ██            ▂  ▃▅                                            
+  ██▆▆█▅▅▃▄▄▃▂▄▆█▇███▆▇▇▃▄▄▆▄▄▃▃▂▂▂▂▂▂▂▂▂▂▃▂▃▃▃▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁ ▃
+  277 ns           Histogram: frequency by time          476 ns <
+
+ Memory estimate: 0 bytes, allocs estimate: 0.
+
+Benchmarking with 1000 entities...
+Mean time per entity: 3.0443544 ns
+BenchmarkTools.Trial: 10000 samples with 9 evaluations per sample.
+ Range (min … max):  2.675 μs …  12.018 μs  ┊ GC (min … max): 0.00% … 0.00%
+ Time  (median):     2.982 μs               ┊ GC (median):    0.00%
+ Time  (mean ± σ):   3.044 μs ± 299.120 ns  ┊ GC (mean ± σ):  0.00% ± 0.00%
+
+       ▂ ▄▆ █ █ ▆ ▆▅ ▄ ▃ ▂ ▁                    ▁ ▂ ▁▁ ▁ ▁    ▂
+  ▃▆▁█▁█▁██▁█▁█▁█▁██▁█▁█▁█▁█▇▁▇▁▆▁▄▆▁▄▁▃▁▄▁▅▆▁█▁█▁█▁██▁█▁█▁█▆ █
+  2.68 μs      Histogram: log(frequency) by time      4.12 μs <
+
+ Memory estimate: 0 bytes, allocs estimate: 0.
+
+Benchmarking with 10000 entities...
+Mean time per entity: 3.1675074074074074 ns
+BenchmarkTools.Trial: 1242 samples with 1 evaluation per sample.
+ Range (min … max):  29.210 μs … 56.448 μs  ┊ GC (min … max): 0.00% … 0.00%
+ Time  (median):     30.789 μs              ┊ GC (median):    0.00%
+ Time  (mean ± σ):   31.675 μs ±  3.359 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
+
+  ▁▄▇█ ▇▆▅ ▃▂▁                    ▁                            
+  ████▁███▁███▁██▇▁▅▅▆▁▁▅▅▁▁▅▄▇▁▇▇█▁▆▇▇▁▇▆▅▁▁▄▁▁▁▁▅▁▁▄▄▁▁▅▄▅▆ █
+  29.2 μs      Histogram: log(frequency) by time        47 μs <
+
+ Memory estimate: 0 bytes, allocs estimate: 0.
+
+Benchmarking with 100000 entities...
+Mean time per entity: 4.189709920634921 ns
+BenchmarkTools.Trial: 126 samples with 1 evaluation per sample.
+ Range (min … max):  381.318 μs … 565.661 μs  ┊ GC (min … max): 0.00% … 0.00%
+ Time  (median):     418.225 μs               ┊ GC (median):    0.00%
+ Time  (mean ± σ):   418.971 μs ±  22.403 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
+
+         ▁  ▃    ▃▁    ▃▆▃██▃▄    ▄                              
+  ▆▆▁▆▆▄▁█▁▁█▄▇▇▆██▇▆▆▁███████▇▄▇▇█▆▆▁▁▆▄▆▆▄▆▁▄▄▄▁▁▁▆▄▁▁▁▄▁▁▁▁▄ ▄
+  381 μs           Histogram: frequency by time          474 μs <
+
+ Memory estimate: 0 bytes, allocs estimate: 0.
+[Finished in 90.5s]
