@@ -2,7 +2,7 @@
               Query Pos/Vel
 -----------------------------------------------
 
-Unoptimized (recreating a component at each loop)
+ReactiveECS: Unoptimized (recreating a component at each loop)
 
 Benchmarking with 100 entities...
 Mean time per entity: 2.4012964813278006 ns

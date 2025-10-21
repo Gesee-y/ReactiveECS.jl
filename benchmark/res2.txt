@@ -1,3 +1,8 @@
+-----------------------------------------------
+              Query Pos/Vel
+-----------------------------------------------
+
+ReactiveECS: Optimized
 
 Benchmarking with 100 entities...
 Mean time per entity: 1.2859033674367435 ns

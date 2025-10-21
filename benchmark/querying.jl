@@ -31,7 +31,7 @@ function benchmark_iteration(n)
     bench = @benchmarkable begin
         x, y, dx, dy, query = data
         @foreachrange query begin
-            @turbo for i in range
+            @inbounds for i in range
                 x[i] += dx[i]
                 y[i] += dy[i]
             end
