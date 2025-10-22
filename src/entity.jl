@@ -45,7 +45,7 @@ end
 
 ##################################################### Operations ########################################################
 
-function Base.getproperty(e::Entity, s::Symbol)
+#=function Base.getproperty(e::Entity, s::Symbol)
     s in getfield(e, :components) || return getfield(e, s)
     column = get_component(getfield(e, :world).value, s)
     return ComponentWrapper(get_id(e), WeakRef(column))
@@ -64,7 +64,7 @@ function Base.setproperty!(c::ComponentWrapper, v, s::Symbol)
     column = getfield(c, :column).value
     return getproperty(column, s)[getfield(c, :id)[]] = v
 end
-
+=#
 """
     get_tree(e::Entity)
 

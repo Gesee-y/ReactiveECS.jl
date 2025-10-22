@@ -482,22 +482,13 @@ function swap!(t::ArchTable, e1::Entity, e2::Entity)
 	swap!(t, i, j, fields=e1.components)
 	e1.ID[], e2.ID[] = j, i
 end
-@generated function swap!(arch::TableColumn{T}, i::Int, j::Int) where T
-    fields=fieldnames(T)
-    expr = Expr(:block)
-    swaps = expr.args
-    for f in fields
-    	type = fieldtype(T, f)
-    	data = gensym()
-        push!(swaps, quote 
-        	$data::Vector{$type} = arch.$f
-        	$data[i],  $data[j] =  $data[j],  $data[i]
-        end)
-    end
-
-    return expr
+function swap!(cols::TableColumn{T}, i::Int, j::Int) where T
+	arch = getdata(cols)
+	for f in fieldnames(T)
+		data = getproperty(arch, f)
+		data[i], data[j] = data[j], data[i]
+	end
 end
-
 
 function override!(t::ArchTable, i::Int, j::Int,fields...)
     for f in fields
@@ -513,7 +504,7 @@ function override!(cols::TableColumn{T}, i::Int, j::Int) where T
 	arch = getdata(cols)
 	for f in fieldnames(T)
 		data = getproperty(arch, f)
-		data[i] == data[j]
+		data[i] = data[j]
 	end
 end
 
@@ -539,6 +530,7 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 	zones = partition.zones
     entities = t.entities
 	zone = zones[end]
+	length(zone) < 1 && (zone.e += 1)
 	j = zone[end]
 	i = get_id(e)[]
 
@@ -558,7 +550,6 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 			override!(t,id,i,fields...)
 		end
 	else
-		pop!(zones)
 		if isfull(new_last_zone)
 			e.ID[] = t.row_count + 1
 		    push!(new_zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
@@ -568,8 +559,6 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 			e.ID[] = new_last_zone.e + 1
 			override!(t,new_last_zone.e + 1,i,fields...)
 		end
-
-		push!(new_to_fill, length(new_zones))
 	end
 
 	# We first something like a deletion to the entity
@@ -577,8 +566,8 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
     
 	zone.e -= 1
 	override!(t,i,j,fields...)
-	t.entities[i] = t.entities[j]
-	t.entities[j].ID[] = i
+	#t.entities[i] = t.entities[j]
+	#t.entities[j].ID[] = i
 end
 
 function get_entity(r::EntityRange, i::Integer)

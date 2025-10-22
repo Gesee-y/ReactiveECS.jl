@@ -116,13 +116,15 @@ end
 """
 function attach_component(ecs::ECSManager, e::Entity, c::T) where T <: AbstractComponent
 	table = get_table(ecs)
-	symb = to_symbol(c)
-	if !(symb in e.components)
-		symb = to_symbol(c)
-		comp = (e.components..., symb)
-		signature = e.archetype | get_bits(table, symb)
+	symb = Symbol(T)
+	comps = e.components
+	bit::UInt128 = 1 << get_bits(table, symb)
+	if (e.archetype & bit == 0)
+		comp = (comps..., symb)
+		signature = e.archetype | bit
 		change_archetype(table, e, signature; fields=comp)
-		setrow!(table, get_id(e)[], c)
+		table.columns[symb][get_id(e)[]] = c
+		#@time setrow!(table, get_id(e)[], c)
 		e.components = comp
 		e.archetype = signature
 	end
