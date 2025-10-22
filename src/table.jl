@@ -100,7 +100,7 @@ Represent a Table. `T` is the actual type used to represent an archetypes.
 `partitions` is a Dict where each archetype map a compact field of components with that archetype.
 """
 mutable struct ArchTable{T}
-	entities::Vector{Optional{Entity}}
+	entities::Vector{Entity}
 	columns::Dict{Symbol, TableColumn}
 	partitions::Dict{T, TablePartition}
 	entity_count::Int
@@ -109,7 +109,7 @@ mutable struct ArchTable{T}
 
 	## Constructors
 
-	ArchTable{T}() where T = new{T}(Optional{Entity}[], Dict{Symbol, TableColumn}(), Dict{T, TablePartition}(), 0, 0, 0)
+	ArchTable{T}() where T = new{T}(Entity[], Dict{Symbol, TableColumn}(), Dict{T, TablePartition}(), 0, 0, 0)
 end
 
 ##################################################### Functions #########################################################
@@ -170,6 +170,23 @@ function addrow!(t::ArchTable, data::NamedTuple)
     end
 end
 
+function getrow(t::ArchTable, i::Int)
+	res = []
+	for column in values(t.columns)
+		push!(res, column[i])
+	end
+
+	return res
+end
+function getrow(t::ArchTable, i::Int, key...)
+	res = []
+	for k in key
+		column = t.columns[k]
+		push!(res, column[i])
+	end
+
+	return res
+end
 """
     setrow!(t::ArchTable, i::Int, data)
 
@@ -351,102 +368,98 @@ end
 This will swap the entity `e` with the last valid entity then substract 1 to the entities count.
 """
 function swap_remove!(t::ArchTable, e::Entity)
-	partition = t.partitions[e.archetype]
-	to_fill = partition.to_fill 
+	partition = t.partitions[e.archetype] 
 	entities = t.entities
 	zones = partition.zones
+	last_zone = zones[end]
 
 	i = get_id(e)[]
     
     # If there are some zone to fill
-	if !isempty(to_fill)
-		fill_id = to_fill[end]
-
-		j = zones[fill_id][end]
+	if !hasonlyoneelt(last_zone)
+		j = last_zone[end]
 
         # If the last index is the same as i then we can just shrink the zone
 		if i == j
-			zones[fill_id].e -= 1
-		    entities[i] = nothing
+			entities[last_zone.e].alive = false
+			last_zone.e -= 1
 		else
 			# We check this in case the entity is undefined du to some resizing
 			if !isdefined(entities, j)
-				entities[i] = Entity(i, e.archetype, e.components, e.world, -1, Int[])
-				entities[j] = nothing
+				ei = entities[i]
+				empty!(ei.children)
 		    else
-			    entities[j], entities[i] = nothing, entities[j]
+			    entities[i] = entities[j]
 			    e.ID[], entities[i].ID[] = j, i
-			
-			    swap!(t, i, j; fields=e.components)
-		    end
-		end
+			    e.alive = false
+			end
 
-        # If the zone is filled
-		if length(zones[fill_id]) < 1
-			pop!(zones)
-			pop!(to_fill)
+			swap!(t, i, j; fields=e.components)
 		end
 	else
+		j = partition.zones[end][end]
+		swap!(t, i, j; fields=e.components)
 		partition.zones[end].s -= 1
-		entities[i] = nothing
-		push(to_fill, length(partition.zones))
+		entities[i] = entities[j]
+	    e.ID[], entities[i].ID[] = j, i
+	    e.alive = false
+		
+		pop!(partition.zones)
 	end
 
     t.entity_count -= 1
 
 	for ids in e.children
 		child = entities[ids[]]
-		swap_remove!(child)
+		swap_remove!(t, child)
 	end
 end
 
 function override_remove!(t::ArchTable, e::Entity)
-	partition = t.partitions[e.archetype]
-	to_fill = partition.to_fill 
+	partition = t.partitions[e.archetype] 
 	entities = t.entities
 	zones = partition.zones
+	last_zone = zones[end]
 
 	i = get_id(e)[]
     
     # If there are some zone to fill
-	if !isempty(to_fill)
-		fill_id = to_fill[end]
-
-		j = zones[fill_id][end]
+	if !hasonlyoneelt(last_zone)
+		j = last_zone[end]
 
         # If the last index is the same as i then we can just shrink the zone
 		if i == j
-			zones[fill_id].e -= 1
-		    entities[i] = nothing
+			entities[last_zone.e].alive = false
+			last_zone.e -= 1
 		else
 			# We check this in case the entity is undefined du to some resizing
 			if !isdefined(entities, j)
-				entities[i] = Entity(i, e.archetype, e.components, e.world, -1, Int[])
-				entities[j] = nothing
+				ei = entities[i]
+				empty!(ei.children)
 		    else
-			    entities[j], entities[i] = nothing, entities[j]
+			    entities[i] = entities[j]
 			    e.ID[], entities[i].ID[] = j, i
-			
-			    override!(t, i, j; fields=e.components)
-		    end
-		end
+			    e.alive = false
+			end
 
-        # If the zone is filled
-		if length(zones[fill_id]) < 1
-			pop!(zones)
-			pop!(to_fill)
+			override!(t, i, j; fields=e.components)
 		end
 	else
+		j = partition.zones[end][end]
+		override!(t, i, j; fields=e.components)
 		partition.zones[end].s -= 1
-		entities[i] = nothing
-		push(to_fill, length(partition.zones))
+		entities[i] = entities[j]
+	    e.ID[], entities[i].ID[] = j, i
+	    e.alive = false
+		
+		pop!(partition.zones)
 	end
 
     t.entity_count -= 1
 
 	for ids in e.children
 		child = entities[ids[]]
-		override_remove!(child)
+		override_remove!(t, child)
 	end
 end
 
@@ -502,7 +515,6 @@ end
 function override!(t::ArchTable, e1::Entity, e2::Entity)
 	i, j = get_id(e1)[], get_id(e2)[]
 	override!(t, i, j, fields=e1.components)
-	e1.ID[], e2.ID[] = -1, i
 end
 @generated function override!(arch::TableColumn{T}, i::Int, j::Int) where T
     fields=fieldnames(T)
@@ -519,6 +531,7 @@ end
 
     return expr
 end
+
 """
     change_archetype(t::ArchTable, e::Entity, archetype::Integer)
 
@@ -592,6 +605,8 @@ Base.lastindex(t::TableRange) = t.e
 Base.getindex(t::TableRange,i::Int) = t.s <= i <= t.e ? i : throw(BoundsError(t,i))
 Base.in(t::TableRange, i::Int) = t.s <= i <= t.e
 Base.in(t::TableRange, e::Entity) = get_id(e)[] in t
+isfull(t::TableRange) = length(t) == t.size
+hasonlyoneelt(t::TableRange) = length(t) == 1
 #################################################### Helpers ###########################################################
 
 _value(x::Any, i::Int) = x

@@ -23,6 +23,7 @@ This struct represent an entity for the ECS. An entity is just an `ID`, which is
 """
 mutable struct Entity
 	ID::MInt{Int64}
+    alive::Bool
     parentID::MInt64
 	archetype::UInt128
 	components::Tuple
@@ -31,8 +32,10 @@ mutable struct Entity
 
     ## Constructors
 
-    Entity(id::Int, archetype::Integer, components, ref; parentID=MInt64(-1)) = new(MInt64(id), parentID, 
+    Entity(id::Int, archetype::Integer, components, ref; parentID=MInt64(-1)) = new(MInt64(id), true, parentID, 
         archetype, components, ref, MInt64[])
+
+    Entity(e::Entity; parentID=MInt64(-1)) = new(get_id(e), true, parentID, e.archetype, e.components, e.world, MInt64[])
 end
 
 struct ComponentWrapper

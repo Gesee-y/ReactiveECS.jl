@@ -60,5 +60,20 @@ let world = ECSManager()
 		RECS.allocate_entity(table, 4095, a2)
 
 		@test length(table.entities) == length(table.columns[:CompA]) == length(table.columns[:CompB]) == table.row_count == 12288
+		RECS.addtopartition(table, a2)
+		@test length(table.entities) == length(table.columns[:CompA]) == length(table.columns[:CompB]) == table.row_count == 16384
+		@test get_range(pt2.zones[2]) == 12289:12289
+	end
+
+	@testset "Table Mutations" begin
+	    id1, id2, id3 = 1, 4096, 12289
+		e1, e2, e3 = RECS.getrow(table, id1), RECS.getrow(table, id2), RECS.getrow(table, id3)
+		temp_e1 = copy(e1)
+
+		RECS.swap!(table, id1, id2; fields=(:CompA, :CompB))
+		@test RECS.getrow(table, id1) == e2
+
+		RECS.swap_remove!(table, id1)
+		@test RECS.getrow(table, id1) == e1
 	end
 end
