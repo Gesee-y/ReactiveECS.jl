@@ -1,7 +1,3 @@
-#########################################################################################################################
-####################################################### MANAGER #########################################################
-#########################################################################################################################
-
 include("..\\src\\ReactiveECS.jl")
 using .ReactiveECS
 using BenchmarkTools
@@ -10,10 +6,12 @@ using LoopVectorization
 @component Position begin
     x::Float64
     y::Float64
+    z::Float64
 end
 @component Velocity begin
     dx::Float64
     dy::Float64
+    dz::Float64
 end
 
 function setup_world(n_entities::Int)
@@ -22,19 +20,19 @@ function setup_world(n_entities::Int)
     register_component!(world, Velocity)
 
     pos, vel = get_component(world, :Position), get_component(world, :Velocity)
-    @time request_entity!(world, (;Position= (i -> Position(i, i*2)), Velocity=Velocity(1,1)), n_entities)
+    request_entity!(world, (;Position= (i -> Position(i, i*2, i*3)), Velocity=Velocity(1,1,1)), n_entities)
 
-    return (pos, vel, @query(world, Position & Velocity))
+    return (pos.x, pos.y, pos.z, vel.dx, vel.dy, vel.dz, @query(world, Position & Velocity))
 end
 
 function benchmark_iteration(n)
     bench = @benchmarkable begin
-        pos_column, vel_column, query = data
+        x, y, z, dx, dy, dz, query = data
         @foreachrange query begin
             @inbounds for i in range
-                pos = pos_column[i]
-                vel = vel_column[i]
-                pos_column[i] = Position(pos.x + vel.dx, pos.y + vel.dy)
+                x[i] += dx[i]
+                y[i] += dy[i]
+                z[i] += dz[i]
             end
         end
     end setup = (data = setup_world($n))
@@ -46,6 +44,6 @@ function benchmark_iteration(n)
     display(result)
 end
 
-for n in (100, 1_000, 10_000, 100_000, 1_000_000)
+for n in (15_000_000)
     benchmark_iteration(n)
 end
