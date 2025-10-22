@@ -43,23 +43,23 @@ end
 ##################################################### Operations ########################################################
 
 function Base.getproperty(e::Entity, s::Symbol)
-    s in e.components || error("The entity doesn't have the component $s")
-    column = get_component(e.world.value, s)
+    s in getfield(e, :components) || return getfield(e, s)
+    column = get_component(getfield(e, :world).value, s)
     return ComponentWrapper(get_id(e), WeakRef(column))
 end
 function Base.setproperty!(e::Entity, v, s::Symbol)
-    s in e.components || error("The entity doesn't have the component $s")
+    s in getfield(e, :components) || return setfield!(e, v, s)
     column = get_component(e.world.value, s)
     column[get_id(e)[]] = v
 end
 
 function Base.getproperty(c::ComponentWrapper, s::Symbol)
-    column = c.column.value
-    return getproperty(column, s)[c.id[]]
+    column = getfield(c, :column).value
+    return getproperty(column, s)[getfield(c, :id)[]]
 end
 function Base.setproperty!(c::ComponentWrapper, v, s::Symbol)
-    column = c.column.value
-    return getproperty(column, s)[c.id[]] = v
+    column = getfield(c, :column).value
+    return getproperty(column, s)[getfield(c, :id)[]] = v
 end
 
 """

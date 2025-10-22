@@ -130,12 +130,12 @@ end
 
 function detach_component(ecs::ECSManager, e::Entity, T::Type)
 	table = get_table(ecs)
-	symb = to_symbol(c)
+	symb = Symbol(T)
 	if symb in e.components
 		comp = filter(c -> c != symb, e.components)
 		signature = e.archetype & get_bits(table, symb)
 		e.components = comp
 		change_archetype(table, e, signature)
-		e.signature = signature
+		e.archetype = signature
 	end
 end

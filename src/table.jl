@@ -247,6 +247,8 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 		zone = zones[i]
 		size = zone.size
 
+		zone.e = max(zone.e, 1)
+
 		# The number of entities needed to fill this
 		to_fill = size - length(zone) 
 		v = clamp(m,0,to_fill)
@@ -254,9 +256,11 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 		# If there are more entities to add than space available, then that zone is filled
 		m >= to_fill && pop!(part_to_fill)
 
+        ed = zone.e
+		zone.e += v-1
         # We then add to interval our newly filled zone
-		push!(intervals, zone[end]:(zone[end]+v))
-		zone.e += v
+		push!(intervals, ed:(zone[end]))
+		
 
 		m -= to_fill
 		count -= 1
@@ -265,10 +269,10 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
     # If after all that there is still some entities to add
 	if m > 0
 		# We create a new range for it with the given offset
-		push!(zones, TableRange(t.row_count+1, t.row_count+m+offset, m+offset))
+		push!(zones, TableRange(t.row_count+1, t.row_count+m, offset))
 		push!(part_to_fill, length(zones)) # We add this new zone as to be filled
 	    
-	    nsize = length(t.entities)+m+offset
+	    nsize = length(t.entities)+offset
 		resize!(t, nsize) # Finally we just resize our table
 	end
 
@@ -547,16 +551,13 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 		id = new_zone.e +1
 		new_zone.e += 1
 		e.ID[] = id
-		if id > t.row_count
-			resize!(t, id)
-		end
 		override!(t,id,i;fields=e.components)
 	else
 		e.ID[] = t.row_count+1
 		push!(new_zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
 		override!(t,t.row_count+1, i)
 		
-		push(new_to_fill, length(new_zones))
+		push!(new_to_fill, length(new_zones))
 	end
 
 	# We first something like a deletion to the entity
