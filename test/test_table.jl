@@ -1,5 +1,6 @@
 using BenchmarkTools
 
+## DEFAULT_PARTITION_SIZE = 4096
 
 let world = ECSManager()
 	table = world.tables[:main]
@@ -20,7 +21,6 @@ let world = ECSManager()
 
 	@testset "Allocating rows" begin
 	    a1 = 0x1
-	    t = 0.0
 	    int1 = RECS.allocate_entity(table, 100, a1)
 
 		@test !isempty(int1)
@@ -43,5 +43,22 @@ let world = ECSManager()
 	@testset "Adding rows" begin
 		a1 = 0x1
 		a2 = 0x2
+
+		pt1 = table.partitions[a1]
+		RECS.addtopartition(table, a1)
+
+		@test get_range(pt1.zones[2]) == 4097:4101
+
+		RECS.createpartition(table, a2)
+		RECS.addtopartition(table, a2)
+
+		pt2 = table.partitions[a2]
+		@test get_range(pt2.zones[1]) == 8193:8193
+		@test !isempty(pt2.to_fill)
+		@test length(table.entities) == length(table.columns[:CompA]) == length(table.columns[:CompB]) == table.row_count == 12288
+
+		RECS.allocate_entity(table, 4095, a2)
+
+		@test length(table.entities) == length(table.columns[:CompA]) == length(table.columns[:CompB]) == table.row_count == 12288
 	end
 end

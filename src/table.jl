@@ -321,7 +321,7 @@ function addtopartition(t::ArchTable{T}, archetype::Integer, size=DEFAULT_PARTIT
     	id = zone[end]
         
         # if we fulfilled a zone, we remove it from the zone to fill
-    	id >= size && pop!(to_fill)
+    	id >= (zone[begin] + zone.size) && pop!(to_fill)
     else
     	# We create a new range and add it to the one to be filled
     	push!(zones, TableRange(id,id,size))
