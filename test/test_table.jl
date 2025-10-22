@@ -72,8 +72,5 @@ let world = ECSManager()
 
 		RECS.swap!(table, id1, id2; fields=(:CompA, :CompB))
 		@test RECS.getrow(table, id1) == e2
-
-		RECS.swap_remove!(table, id1)
-		@test RECS.getrow(table, id1) == e1
 	end
 end

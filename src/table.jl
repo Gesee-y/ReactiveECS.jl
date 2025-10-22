@@ -70,9 +70,9 @@ This is used to represent a range for a partition.
 It allow more granular control for each range (instead of having a fixed size for every range).
 """
 mutable struct TableRange
-	s::Int
+	const s::Int
 	e::Int
-	size::Int64
+	const size::Int64
 end
 
 """
@@ -325,24 +325,17 @@ function addtopartition(t::ArchTable{T}, archetype::Integer, size=DEFAULT_PARTIT
     partition = partitions[archetype]
     
     zones::Vector{TableRange} = partition.zones
-    zone = zones[end]
-    to_fill::Vector{Int} = partition.to_fill
+    last_zone = zones[end]
     id = t.row_count+1
 
 
     # if there is some zone to fill
-    if !isempty(to_fill)
-    	fill_id = to_fill[end]
-    	zone = zones[fill_id]
-    	zone.e += 1
-    	id = zone[end]
-        
-        # if we fulfilled a zone, we remove it from the zone to fill
-    	id >= (zone[begin] + zone.size) && pop!(to_fill)
+    if !isfull(last_zone)
+    	last_zone.e += 1
+    	id = last_zone[end]
     else
     	# We create a new range and add it to the one to be filled
     	push!(zones, TableRange(id,id,size))
-    	push!(to_fill, length(zones))
     	resize!(t, id+size-1)
     end
     
@@ -424,7 +417,7 @@ function override_remove!(t::ArchTable, e::Entity)
 	i = get_id(e)[]
     
     # If there are some zone to fill
-	if !hasonlyoneelt(last_zone)
+	@time if !hasonlyoneelt(last_zone)
 		j = last_zone[end]
 
         # If the last index is the same as i then we can just shrink the zone
@@ -506,7 +499,7 @@ end
 end
 
 
-function override!(t::ArchTable, i::Int, j::Int; fields=())
+function override!(t::ArchTable, i::Int, j::Int,fields...)
     for f in fields
     	arch = t.columns[f]
     	override!(arch, i, j)
@@ -516,20 +509,12 @@ function override!(t::ArchTable, e1::Entity, e2::Entity)
 	i, j = get_id(e1)[], get_id(e2)[]
 	override!(t, i, j, fields=e1.components)
 end
-@generated function override!(arch::TableColumn{T}, i::Int, j::Int) where T
-    fields=fieldnames(T)
-    expr = Expr(:block)
-    swaps = expr.args
-    for f in fields
-    	type = fieldtype(T, f)
-    	data = gensym()
-        push!(swaps, quote 
-        	$data::Vector{$type} = arch.$f
-        	$data[i] = $data[j]
-        end)
-    end
-
-    return expr
+function override!(cols::TableColumn{T}, i::Int, j::Int) where T
+	arch = getdata(cols)
+	for f in fieldnames(T)
+		data = getproperty(arch, f)
+		data[i] == data[j]
+	end
 end
 
 """
@@ -544,11 +529,13 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 	if !haskey(t.partitions, archetype)
 		createpartition(t, archetype)
 	end
+	old_arch = e.archetype
     new_partition = t.partitions[archetype]
-	partition = t.partitions[e.archetype]
-    new_to_fill = new_partition.to_fill
+	partition = t.partitions[old_arch]
+    new_last_zone = new_partition.zones[end]
+	
 	new_zones = new_partition.zones 
-    to_fill = partition.to_fill
+    last_zone = partition.zones[end]
 	zones = partition.zones
     entities = t.entities
 	zone = zones[end]
@@ -557,18 +544,31 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 
     
 	# Now if there is some space to fill in the new archetype's partition
-	if !isempty(new_to_fill)
-		fill_id = to_fill[end]
-		new_zone = new_zones[fill_id]
-		id = new_zone.e +1
-		new_zone.e += 1
-		e.ID[] = id
-		override!(t,id,i;fields=e.components)
+	if !hasonlyoneelt(last_zone)
+		if isfull(new_last_zone)
+			e.ID[] = t.row_count + 1
+		    push!(new_zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
+		    override!(t,t.row_count+1, i)
+		    resize!(t, t.row_count+DEFAULT_PARTITION_SIZE)
+		    t.entities[t.row_count+1] = e
+		else
+			id = new_last_zone.e +1
+			new_last_zone.e += 1
+			e.ID[] = id
+			override!(t,id,i,fields...)
+		end
 	else
-		e.ID[] = t.row_count+1
-		push!(new_zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
-		override!(t,t.row_count+1, i)
-		
+		pop!(zones)
+		if isfull(new_last_zone)
+			e.ID[] = t.row_count + 1
+		    push!(new_zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
+		    resize!(t, t.row_count+DEFAULT_PARTITION_SIZE)
+		    override!(t,t.row_count+1, i)
+		else
+			e.ID[] = new_last_zone.e + 1
+			override!(t,new_last_zone.e + 1,i,fields...)
+		end
+
 		push!(new_to_fill, length(new_zones))
 	end
 
@@ -576,7 +576,9 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
     # Taking it to the last position and shrinking the range
     
 	zone.e -= 1
-	override!(t,i,j,fields=fields)
+	override!(t,i,j,fields...)
+	t.entities[i] = t.entities[j]
+	t.entities[j].ID[] = i
 end
 
 function get_entity(r::EntityRange, i::Integer)
