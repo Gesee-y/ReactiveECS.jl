@@ -117,6 +117,7 @@ end
 Base.eachindex(v::TableColumn) = eachindex(getdata(v))
 Base.getindex(v::TableColumn, i) = getdata(v)[i]
 Base.setindex!(v::TableColumn, val, i) = (getdata(v)[i] = val)
+Base.length(v::TableColumn) = length(getdata(v))
 getdata(v::TableColumn) = getfield(v, :data)
 getlocks(v::TableColumn) = getfield(v, :locks)
 get_lock(v::TableColumn, path::NTuple{N,Symbol}) where N = HierarchicalLocks.get_node(getlocks(v).root, path)
@@ -217,7 +218,7 @@ This will allocate `n` entities in the table `t`. More precisely for the partiti
 `offset` is how many entities will be allocated in case the allocation left half-filled ranges.
 This function return a set of interval corresponding to the indices of entities allocated.
 """
-function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
+function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=DEFAULT_PARTITION_SIZE)
 	partitions = t.partitions
 	intervals = UnitRange{Int64}[]
 
@@ -247,8 +248,6 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 		zone = zones[i]
 		size = zone.size
 
-		zone.e = max(zone.e, 1)
-
 		# The number of entities needed to fill this
 		to_fill = size - length(zone) 
 		v = clamp(m,0,to_fill)
@@ -256,8 +255,8 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 		# If there are more entities to add than space available, then that zone is filled
 		m >= to_fill && pop!(part_to_fill)
 
-        ed = zone.e
-		zone.e += v-1
+        ed = max(zone.e, 1)
+		zone.e += v
         # We then add to interval our newly filled zone
 		push!(intervals, ed:(zone[end]))
 		
@@ -272,7 +271,7 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=2048)
 		push!(zones, TableRange(t.row_count+1, t.row_count+m, offset))
 		push!(part_to_fill, length(zones)) # We add this new zone as to be filled
 	    
-	    nsize = length(t.entities)+offset
+	    nsize = t.row_count+offset
 		resize!(t, nsize) # Finally we just resize our table
 	end
 
@@ -587,7 +586,7 @@ end
 
 get_range(t::TableRange)::UnitRange{Int64} = t.s:t.e
 
-Base.length(t::TableRange) = clamp(t.e - t.s,0,t.size)
+Base.length(t::TableRange) = clamp(t.e - t.s + 1,0,t.size)
 Base.firstindex(t::TableRange) = t.s
 Base.lastindex(t::TableRange) = t.e
 Base.getindex(t::TableRange,i::Int) = t.s <= i <= t.e ? i : throw(BoundsError(t,i))
