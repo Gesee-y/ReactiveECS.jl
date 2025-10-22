@@ -35,7 +35,32 @@ mutable struct Entity
         archetype, components, ref, MInt64[])
 end
 
+struct ComponentWrapper
+    id::MInt64
+    column::WeakRef
+end
+
 ##################################################### Operations ########################################################
+
+function Base.getproperty(e::Entity, s::Symbol)
+    s in e.components || error("The entity doesn't have the component $s")
+    column = get_component(e.world.value, s)
+    return ComponentWrapper(get_id(e), WeakRef(column))
+end
+function Base.setproperty!(e::Entity, v, s::Symbol)
+    s in e.components || error("The entity doesn't have the component $s")
+    column = get_component(e.world.value, s)
+    column[get_id(e)[]] = v
+end
+
+function Base.getproperty(c::ComponentWrapper, s::Symbol)
+    column = c.column.value
+    return getproperty(column, s)[c.id[]]
+end
+function Base.setproperty!(c::ComponentWrapper, v, s::Symbol)
+    column = c.column.value
+    return getproperty(column, s)[c.id[]] = v
+end
 
 """
     get_tree(e::Entity)
