@@ -88,6 +88,7 @@ This allows fast and localized entities processing.
 mutable struct TablePartition
 	zones::Vector{TableRange}
 	to_fill::Vector{Int}
+	components::Vector{Symbol}
 end
 
 """
@@ -99,17 +100,18 @@ Represent a Table. `T` is the actual type used to represent an archetypes.
 `columns` is a dict where each type map a component.
 `partitions` is a Dict where each archetype map a compact field of components with that archetype.
 """
-mutable struct ArchTable{T}
+mutable struct ArchTable
 	entities::Vector{Entity}
 	columns::Dict{Symbol, TableColumn}
-	partitions::Dict{T, TablePartition}
+	partitions::Dict{UInt128, TablePartition}
+	idmap::Dict{UInt128, Type}
 	entity_count::Int
 	component_count::Int
 	row_count::Int
 
 	## Constructors
 
-	ArchTable{T}() where T = new{T}(Entity[], Dict{Symbol, TableColumn}(), Dict{T, TablePartition}(), 0, 0, 0)
+	ArchTable() = new(Entity[], Dict{Symbol, TableColumn}(), Dict{UInt128, TablePartition}(), Dict{UInt128, Type}(), 0, 0, 0)
 end
 
 ##################################################### Functions #########################################################
@@ -130,10 +132,11 @@ Base.getproperty(v::TableColumn, s::Symbol) = get_field(v, Val(s))
 This register a component in a table, assigning to him a bit position.
 This also initialize the column for this component. Should be done after defining the component.
 """
-function register_component!(table::ArchTable, T::Type)
+function register_component!(table::ArchTable, id,  T::Type)
 	columns = table.columns
 	key = to_symbol(T)
 	count = length(table.entities)
+	table.idmap[id] = T
 	!haskey(columns, key) && (table.component_count+=1; 
 		columns[key] = TableColumn{T}(table.component_count, undef, count))
 end
@@ -242,7 +245,8 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=DEFAUL
 	# If the partition fot that archetype doesn't yet exist
 	if !haskey(partitions, archetype)
 		# Just creating a new partition
-		partition = TablePartition(TableRange[TableRange(t.row_count+1,t.row_count+n, n)], Int[])
+		comps = get_components_list(t, archetype)
+		partition = TablePartition(TableRange[TableRange(t.row_count+1,t.row_count+n, n)], Int[], comps)
     	partitions[archetype] = partition # And creating that new archetype
 
         push!(intervals, t.row_count+1:t.row_count+n)
@@ -307,7 +311,8 @@ function createpartition(t::ArchTable, archetype::Integer, size=DEFAULT_PARTITIO
 	partitions = t.partitions
 	if !haskey(partitions, archetype)
 		# We initialize our partition with the range and we immediately set that range as to be filled
-		partition = TablePartition(TableRange[TableRange(t.row_count+1,t.row_count, size)], Int[1])
+		comps = get_components_list(t, archetype)
+		partition = TablePartition(TableRange[TableRange(t.row_count+1,t.row_count, size)], Int[1], comps)
     	partitions[archetype] = partition
 
     	resize!(t, t.row_count+size)
@@ -320,7 +325,7 @@ end
 This add a new slot to a partition or create another range if necessary and return the newly created id.
 This will panic if there is no partitions matching that archetype
 """
-function addtopartition(t::ArchTable{T}, archetype::Integer, size=DEFAULT_PARTITION_SIZE) where T
+function addtopartition(t::ArchTable, archetype::Integer, size=DEFAULT_PARTITION_SIZE)
 	partitions = t.partitions
     partition = partitions[archetype]
     
@@ -490,9 +495,10 @@ function swap!(cols::TableColumn{T}, i::Int, j::Int) where T
 	end
 end
 
-function override!(t::ArchTable, i::Int, j::Int,fields...)
+function override!(t::ArchTable, i::Int, j::Int,fields::Vector{Symbol})
+    columns = t.columns
     for f in fields
-    	arch = t.columns[f]
+    	arch = columns[f]
     	override!(arch, i, j)
     end
 end
@@ -500,12 +506,18 @@ function override!(t::ArchTable, e1::Entity, e2::Entity)
 	i, j = get_id(e1)[], get_id(e2)[]
 	override!(t, i, j, fields=e1.components)
 end
-function override!(cols::TableColumn{T}, i::Int, j::Int) where T
-	arch = getdata(cols)
-	for f in fieldnames(T)
-		data = getproperty(arch, f)
-		data[i] = data[j]
-	end
+@generated function override!(arch::TableColumn{T,N,C,I}, i::Int, j::Int) where {T,N,C,I}
+    fields=C.parameters[1]
+    expr = Expr(:block)
+    overrides = expr.args
+    for k in eachindex(fields)
+    	f = fields[k]
+    	type = C.parameters[2].parameters[k]
+    	data = gensym()
+        push!(overrides, :($data = getdata(arch).$f; $data[i] = $data[j]))
+    end
+
+    return expr
 end
 
 """
@@ -514,15 +526,18 @@ end
 Move the entity `e` of the table `t` from his archetype to a new `archetype`.
 This function assume `t` contain a partition for `archetype` else it will panic.
 """
-function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.components)
+function change_archetype(t::ArchTable, e::Entity,old_arch, archetype)
 
+	partitions = t.partitions
 	# Relevant data neatly organized
-	if !haskey(t.partitions, archetype)
-		createpartition(t, archetype)
-	end
-	old_arch = e.archetype
-    new_partition = t.partitions[archetype]
-	partition = t.partitions[old_arch]
+	#addtopartition(t, archetype)
+	#if !haskey(partitions, archetype)
+	createpartition(t, archetype)
+	#end
+	#old_arch = e.archetype
+    new_partition = partitions[archetype]
+	partition = partitions[old_arch]
+	fields = partition.components
     new_last_zone = new_partition.zones[end]
 	
 	new_zones = new_partition.zones 
@@ -547,7 +562,7 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 			id = new_last_zone.e +1
 			new_last_zone.e += 1
 			e.ID[] = id
-			override!(t,id,i,fields...)
+			override!(t,id,i,fields)
 		end
 	else
 		if isfull(new_last_zone)
@@ -557,7 +572,7 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
 		    override!(t,t.row_count+1, i)
 		else
 			e.ID[] = new_last_zone.e + 1
-			override!(t,new_last_zone.e + 1,i,fields...)
+			override!(t,new_last_zone.e + 1,i,fields)
 		end
 	end
 
@@ -565,9 +580,9 @@ function change_archetype(t::ArchTable, e::Entity, archetype::Integer; fields=e.
     # Taking it to the last position and shrinking the range
     
 	zone.e -= 1
-	override!(t,i,j,fields...)
-	#t.entities[i] = t.entities[j]
-	#t.entities[j].ID[] = i
+	override!(t,i,j,fields)
+	t.entities[i] = t.entities[j]
+	t.entities[j].ID[] = i
 end
 
 function get_entity(r::EntityRange, i::Integer)
@@ -589,6 +604,19 @@ function get_entity(r::EntityRange, i::Integer)
 end
 
 get_range(t::TableRange)::UnitRange{Int64} = t.s:t.e
+
+function get_components_list(t::ArchTable, archetype::Integer)
+	res = Symbol[]
+    
+    while archetype != 0
+    	bit = archetype & (~archetype + 1)
+    	push!(res, Symbol(t.idmap[bit]))
+
+    	archetype = xor(archetype, bit)
+    end
+
+    return res
+end
 
 Base.length(t::TableRange) = clamp(t.e - t.s + 1,0,t.size)
 Base.firstindex(t::TableRange) = t.s

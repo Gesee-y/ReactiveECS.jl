@@ -62,7 +62,7 @@ to_symbol(c::T) where T <: AbstractComponent = to_symbol(T)
 
 This function return the bit signature of a component. A component just represent one bit 
 """
-get_bits(table::ArchTable{T}, s::Symbol) where T <: Integer = T(get_id(table.columns[s]))
+get_bits(table::ArchTable, s::Symbol) = UInt128(get_id(table.columns[s]))
 get_bits(table::ArchTable, ss) = 0
 function get_bits(table::ArchTable, ss::Tuple)
     

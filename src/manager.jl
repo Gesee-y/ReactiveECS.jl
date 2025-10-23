@@ -93,7 +93,7 @@ mutable struct ECSManager
 
 	## Constructor
 
-	ECSManager() = new(Vector{Optional{Entity}}(), Dict{Symbol,ArchTable}(:main => ArchTable{UInt128}()), :main, 
+	ECSManager() = new(Vector{Optional{Entity}}(), Dict{Symbol,ArchTable}(:main => ArchTable()), :main, 
         Dict{Symbol, Int}(), 1, Int[], Dict{AbstractSystem, Query}(), LogTracer(), Atomic{Int}(0), Atomic{Int}(0), 
         Condition())
 end
@@ -133,11 +133,12 @@ Register the a component in the manager `ecs.
 This will create a column for that component in a world.
 """
 register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = begin 
-    register_component!(get_table(ecs), T)
     if !haskey(ecs.components_ids, Symbol(T))
         ecs.components_ids[Symbol(T)] = ecs.bitpos
         ecs.bitpos += 1
     end
+
+    register_component!(get_table(ecs),1 << ecs.components_ids[Symbol(T)], T)
 end
 
 """
