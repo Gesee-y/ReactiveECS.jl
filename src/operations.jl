@@ -26,7 +26,7 @@ function create_entity!(ecs::ECSManager, comp::NamedTuple; parent=ecs, size=DEFA
 
     # We get the bit representation of that set of components
 	signature = get_bits(table, key)
-	!haskey(partitions, signature) && createpartition(table, signature, size)
+	createpartition(table, signature, size)
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
 	entity = Entity(id, signature, key, WeakRef(ecs))
@@ -43,7 +43,7 @@ function create_entity!(ecs::ECSManager, key::Tuple; parent=ecs, size=DEFAULT_PA
 
     # We get the bit representation of that set of components
 	signature = get_bits(table, key)
-	!haskey(partitions, signature) && createpartition(table, signature, size)
+	createpartition(table, signature, size)
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
 	entity = Entity(id, signature, key, WeakRef(ecs))

@@ -34,6 +34,8 @@ const Optional{T} = Union{Nothing, T}
 
 # Mutable Ints
 include("mutable_ints.jl")
+# Sparse sets
+include("sparseset.jl")
 # Entities management
 include("entity.jl")
 # Table representation
