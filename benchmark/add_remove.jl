@@ -28,10 +28,10 @@ function setup_world(n_entities::Int)
         push!(entities, create_entity!(world, (; Position=Position(i, i*2))))
     end
 
-    #for e in entities
-    #    attach_component(world, e, Velocity(0,0))
-    #    detach_component(world, e, Velocity)
-    #end
+    for e in entities
+        attach_component(world, e, Velocity(0,0))
+        detach_component(world, e, :Velocity)
+    end
 
     return (world, entities)
 end
@@ -41,7 +41,7 @@ function benchmark_iteration(n)
         ents::Vector{Entity} = entities
         for e in ents
             attach_component(world, e, Velocity(0,0))
-            #detach_component(world, e, Velocity)
+            detach_component(world, e, :Velocity)
         end
     end setup = ((world, entities) = setup_world($n))
 

@@ -103,7 +103,7 @@ Represent a Table. `T` is the actual type used to represent an archetypes.
 mutable struct ArchTable
 	entities::Vector{Entity}
 	columns::Dict{Symbol, TableColumn}
-	partitions::SparseSet{UInt128, TablePartition}
+	partitions::ArchetypeMap{TablePartition}
 	idmap::Dict{UInt128, Type}
 	entity_count::Int
 	component_count::Int
@@ -111,7 +111,7 @@ mutable struct ArchTable
 
 	## Constructors
 
-	ArchTable() = new(Entity[], Dict{Symbol, TableColumn}(), SparseSet{UInt128, TablePartition}(typemax(UInt128)),
+	ArchTable() = new(Entity[], Dict{Symbol, TableColumn}(), ArchetypeMap{TablePartition}(2^15),
 		Dict{UInt128, Type}(), 0, 0, 0)
 end
 
@@ -244,7 +244,7 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=DEFAUL
 	intervals = UnitRange{Int64}[]
 
 	# If the partition fot that archetype doesn't yet exist
-	if !hasindex(partitions, archetype)
+	if !haskey(partitions, archetype)
 		# Just creating a new partition
 		comps = get_components_list(t, archetype)
 		partition = TablePartition(TableRange[TableRange(t.row_count+1,t.row_count+n, n)], Int[], comps)
@@ -310,7 +310,7 @@ This only has effect if `archetype` doesn't yet exist in the table `t`
 """
 function createpartition(t::ArchTable, archetype::Integer, size=DEFAULT_PARTITION_SIZE)
 	partitions = t.partitions
-	if !hasindex(partitions, archetype)
+	if !haskey(partitions, archetype)
 		# We initialize our partition with the range and we immediately set that range as to be filled
 		comps = get_components_list(t, archetype)
 		partition = TablePartition(TableRange[TableRange(t.row_count+1,t.row_count, size)], Int[1], comps)
@@ -532,13 +532,13 @@ function change_archetype(t::ArchTable, e::Entity,old_arch, archetype)
 	partitions = t.partitions
 	# Relevant data neatly organized
 	#addtopartition(t, archetype)
-	#if !haskey(partitions, archetype)
-	#createpartition(t, archetype)
+	#!haskey(partitions, archetype)
+	createpartition(t, archetype)
 	#end
-	#old_arch = e.archetype
-    #new_partition = partitions[archetype]
-	@inbounds partition = partitions[old_arch]
-	#=fields = partition.components
+	old_arch = e.archetype
+    new_partition = partitions[archetype]
+	partition = partitions[old_arch]
+	fields = partition.components
     new_last_zone = new_partition.zones[end]
 	
 	new_zones = new_partition.zones 
@@ -582,8 +582,9 @@ function change_archetype(t::ArchTable, e::Entity,old_arch, archetype)
     
 	zone.e -= 1
 	override!(t,i,j,fields)
+	
 	t.entities[i] = t.entities[j]
-	t.entities[j].ID[] = i=#
+	t.entities[j].ID[] = i
 end
 
 function get_entity(r::EntityRange, i::Integer)
