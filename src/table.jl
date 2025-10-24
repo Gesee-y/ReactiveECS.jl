@@ -573,6 +573,66 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
         entities[j].ID[] = i
     end
 end
+function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new_arch, comp=nothing)
+    partitions = t.partitions
+    createpartition(t, new_arch)
+
+    old_partition = partitions[old_arch]
+    new_partition = partitions[new_arch]
+
+    fields = old_partition.components
+    old_zone = old_partition.zones[end]
+    
+    new_zone = new_partition.zones[end]
+    n = length(entities)
+
+    last_new_id = new_zone.e
+    needed = last_new_id + n
+
+    if needed > new_zone.e+new_zone.size
+
+    	endval = new_zone.s + new_zone.size - 1
+        # Extend partition with new zone
+        push!(new_partition.zones, TableRange(t.row_count+1, t.row_count+needed-endval+1, max(DEFAULT_PARTITION_SIZE, needed-endval)))
+        
+        to_fill = [new_zone.e+1:(endval), t.row_count+1:(t.row_count+needed-endval)]
+        new_zone.e = endval
+        resize!(t, t.row_count + max(DEFAULT_PARTITION_SIZE, needed-endval))
+    else
+    	to_fill = [new_zone.e+1:needed]
+    end
+
+    # Copier les données colonne par colonne
+    columns = t.columns
+    
+    if comp != nothing
+    	comp_col = columns[to_symbol(comp)]
+	    @inbounds for r in to_fill
+	        Threads.@threads for i in r
+	            comp_col[i] = comp
+	        end
+	    end
+    end
+
+    for field in fields
+        col = columns[field]
+        c = 1
+        @inbounds for r in to_fill
+            for i in r
+            	e = entities[c]
+            	id = get_id(e)
+            	col[i] = col[id[]]
+                id[] = i
+                t.entities[i] = e
+                e.archetype = new_arch
+                c += 1
+            end
+        end
+    end
+
+    old_zone.e -= n
+end
+
 
 
 function get_entity(r::EntityRange, i::Integer)

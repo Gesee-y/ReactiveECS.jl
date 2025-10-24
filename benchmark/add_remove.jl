@@ -39,10 +39,11 @@ end
 function benchmark_iteration(n)
     bench = @benchmarkable begin
         ents::Vector{Entity} = entities
-        for e in ents
-            attach_component(world, e, Velocity(0,0))
-            detach_component(world, e, :Velocity)
-        end
+        #for e in ents
+            attach_component(world, ents, Velocity(0,0))
+            #attach_component(world, e, Velocity(0,0))
+            detach_component(world, ents, :Velocity)
+        #end
     end setup = ((world, entities) = setup_world($n))
 
     println("\nBenchmarking with $n entities...")
