@@ -559,6 +559,7 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
         for f in fields
             col = t.columns[f]
             override!(col, new_id, i)
+            override!(col, i, j)
         end
     end
 
@@ -567,7 +568,6 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
         if !isdefined(entities, j)
 	        entities[j] = Entity(j, old_arch, e.world)
         end
-        override!(t, i, j, fields)
 	    
         entities[i] = entities[j]
         entities[j].ID[] = i
