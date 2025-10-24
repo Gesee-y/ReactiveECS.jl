@@ -26,16 +26,15 @@ mutable struct Entity
     alive::Bool
     parentID::MInt64
 	archetype::UInt128
-	components::Tuple
 	world::WeakRef
     children::Vector{MInt64}
 
     ## Constructors
 
-    Entity(id::Int, archetype::Integer, components, ref; parentID=MInt64(-1)) = new(MInt64(id), true, parentID, 
-        archetype, components, ref, MInt64[])
+    Entity(id::Int, archetype::Integer, ref; parentID=MInt64(-1)) = new(MInt64(id), true, parentID, 
+        archetype, ref, MInt64[])
 
-    Entity(e::Entity; parentID=MInt64(-1)) = new(get_id(e), true, parentID, e.archetype, e.components, e.world, MInt64[])
+    Entity(e::Entity; parentID=MInt64(-1)) = new(get_id(e), true, parentID, e.archetype, e.world, MInt64[])
 end
 
 struct ComponentWrapper

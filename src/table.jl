@@ -104,7 +104,7 @@ mutable struct ArchTable
 	entities::Vector{Entity}
 	columns::Dict{Symbol, TableColumn}
 	partitions::ArchetypeMap{TablePartition}
-	idmap::Dict{UInt128, Type}
+	idmap::ArchetypeMap{Type}
 	entity_count::Int
 	component_count::Int
 	row_count::Int
@@ -112,7 +112,7 @@ mutable struct ArchTable
 	## Constructors
 
 	ArchTable() = new(Entity[], Dict{Symbol, TableColumn}(), ArchetypeMap{TablePartition}(2^15),
-		Dict{UInt128, Type}(), 0, 0, 0)
+		ArchetypeMap{Type}(128), 0, 0, 0)
 end
 
 ##################################################### Functions #########################################################
@@ -507,18 +507,9 @@ function override!(t::ArchTable, e1::Entity, e2::Entity)
 	i, j = get_id(e1)[], get_id(e2)[]
 	override!(t, i, j, fields=e1.components)
 end
-@generated function override!(arch::TableColumn{T,N,C,I}, i::Int, j::Int) where {T,N,C,I}
-    fields=C.parameters[1]
-    expr = Expr(:block)
-    overrides = expr.args
-    for k in eachindex(fields)
-    	f = fields[k]
-    	type = C.parameters[2].parameters[k]
-    	data = gensym()
-        push!(overrides, :($data = getdata(arch).$f; $data[i] = $data[j]))
-    end
-
-    return expr
+function override!(arch::TableColumn{T}, i::Int, j::Int) where T
+    data = getdata(arch)
+    @inbounds data[i] = data[j]
 end
 
 """
@@ -527,65 +518,62 @@ end
 Move the entity `e` of the table `t` from his archetype to a new `archetype`.
 This function assume `t` contain a partition for `archetype` else it will panic.
 """
-function change_archetype(t::ArchTable, e::Entity,old_arch, archetype)
 
-	partitions = t.partitions
-	# Relevant data neatly organized
-	#addtopartition(t, archetype)
-	#!haskey(partitions, archetype)
-	createpartition(t, archetype)
-	#end
-	old_arch = e.archetype
-    new_partition = partitions[archetype]
-	partition = partitions[old_arch]
-	fields = partition.components
-    new_last_zone = new_partition.zones[end]
-	
-	new_zones = new_partition.zones 
-    last_zone = partition.zones[end]
-	zones = partition.zones
+function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch::Integer)
+    partitions = t.partitions
+    # Ensure new partition exists
+    createpartition(t, new_arch)
+
+    old_partition = partitions[old_arch]
+    new_partition = partitions[new_arch]
+
+    fields = old_partition.components
     entities = t.entities
-	zone = zones[end]
-	length(zone) < 1 && (zone.e += 1)
-	j = zone[end]
-	i = get_id(e)[]
 
-    
-	# Now if there is some space to fill in the new archetype's partition
-	if !hasonlyoneelt(last_zone)
-		if isfull(new_last_zone)
-			e.ID[] = t.row_count + 1
-		    push!(new_zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
-		    override!(t,t.row_count+1, i)
-		    resize!(t, t.row_count+DEFAULT_PARTITION_SIZE)
-		    t.entities[t.row_count+1] = e
-		else
-			id = new_last_zone.e +1
-			new_last_zone.e += 1
-			e.ID[] = id
-			override!(t,id,i,fields)
-		end
-	else
-		if isfull(new_last_zone)
-			e.ID[] = t.row_count + 1
-		    push!(new_zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
-		    resize!(t, t.row_count+DEFAULT_PARTITION_SIZE)
-		    override!(t,t.row_count+1, i)
-		else
-			e.ID[] = new_last_zone.e + 1
-			override!(t,new_last_zone.e + 1,i,fields)
-		end
-	end
+    old_zone = old_partition.zones[end]
+    new_zone = new_partition.zones[end]
 
-	# We first something like a deletion to the entity
-    # Taking it to the last position and shrinking the range
-    
-	zone.e -= 1
-	override!(t,i,j,fields)
-	
-	t.entities[i] = t.entities[j]
-	t.entities[j].ID[] = i
+    i = get_id(e)[]
+
+    # Remove from old zone (get last valid entity)
+    j = old_zone.e
+    old_zone.e -= 1
+
+    # Allocate slot in new zone
+    if new_zone.e-new_zone.s+1 == new_zone.size
+        # Extend partition with new zone
+        push!(new_partition.zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
+        resize!(t, t.row_count + DEFAULT_PARTITION_SIZE)
+        new_id = t.row_count
+        new_zone = new_partition.zones[end]
+    else
+        new_id = new_zone.e + 1
+        new_zone.e += 1
+    end
+
+    e.ID[] = new_id
+    entities[new_id] = e
+
+    # Swap structs directly
+    @inbounds begin
+        for f in fields
+            col = t.columns[f]
+            override!(col, new_id, i)
+        end
+    end
+
+    # Finalize old slot
+    if i != j
+        if !isdefined(entities, j)
+	        entities[j] = Entity(j, old_arch, e.world)
+        end
+        override!(t, i, j, fields)
+	    
+        entities[i] = entities[j]
+        entities[j].ID[] = i
+    end
 end
+
 
 function get_entity(r::EntityRange, i::Integer)
 	world = r.world.value

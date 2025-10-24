@@ -80,6 +80,7 @@ mutable struct ArchetypeMap{V}
     end
 end
 
+Base.getindex(m::ArchetypeMap, key) = getindex(m, UInt128(key))
 @inline function Base.getindex(m::ArchetypeMap, key::UInt128)
     i = (key * 11400714819323198485) & m.mask + 1
     while m.used[i]
@@ -89,6 +90,7 @@ end
     error("key not found")
 end
 
+Base.setindex!(m::ArchetypeMap, v, key) = setindex!(m, v, UInt128(key))
 @inline function Base.setindex!(m::ArchetypeMap{V}, val::V, key::UInt128) where V
     i = (key * 11400714819323198485) & m.mask + 1
     while m.used[i]

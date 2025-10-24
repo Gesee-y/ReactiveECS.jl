@@ -29,7 +29,7 @@ function create_entity!(ecs::ECSManager, comp::NamedTuple; parent=ecs, size=DEFA
 	createpartition(table, signature, size)
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
-	entity = Entity(id, signature, key, WeakRef(ecs))
+	entity = Entity(id, signature, WeakRef(ecs))
 	setrow!(table, id, comp) # We then initialize the components
 
 	table.entities[id] = entity
@@ -46,7 +46,7 @@ function create_entity!(ecs::ECSManager, key::Tuple; parent=ecs, size=DEFAULT_PA
 	createpartition(table, signature, size)
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
-	entity = Entity(id, signature, key, WeakRef(ecs))
+	entity = Entity(id, signature, WeakRef(ecs))
 	table.entities[id] = entity
 
 	return entity
@@ -118,11 +118,11 @@ function attach_component(ecs::ECSManager, e::Entity, c::AbstractComponent)
 	symb = to_symbol(c)
 	bit::UInt128 = one(UInt128) << ecs.components_ids[symb]
 	if iszero(e.archetype & bit)
+		table = get_table(ecs)
 		old_signature = e.archetype
 		signature = old_signature | bit
-		change_archetype(get_table(ecs), e, old_signature, signature)
-		#table.columns[symb][get_id(e)[]] = c
-		#setrow!(table, get_id(e)[], c)
+		change_archetype!(table, e, old_signature, signature)
+		table.columns[symb][get_id(e)[]] = c
 		e.archetype = signature
 	end
 end
@@ -132,7 +132,7 @@ function detach_component(ecs::ECSManager, e::Entity, symb::Symbol)
 	if (e.archetype & bit == bit)
 		old_signature = e.archetype
 		signature = xor(old_signature, bit)
-		#change_archetype(get_table(ecs), e, old_signature, signature)
+		change_archetype!(get_table(ecs), e, old_signature, signature)
 		e.archetype = signature
 	end
 end
