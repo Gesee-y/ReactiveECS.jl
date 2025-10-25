@@ -528,11 +528,11 @@ function override!(t::ArchTable, i::Int, j::Int,fields::Vector{Symbol})
     	override!(arch, i, j)
     end
 end
-function override!(t::ArchTable, i, j,fields::Vector{Symbol}, s=1)
+function swap_override!(t::ArchTable, sw, i, j,fields::Vector{Symbol}, s=1)
     columns = t.columns
     for f in fields
     	arch = columns[f]
-    	override!(arch, i, j, s)
+    	swap_override!(arch, sw, i, j, s)
     end
 end
 
@@ -550,12 +550,6 @@ function override!(arch::TableColumn{T}, i::UnitRange, j::Int) where T
         @inbounds data[x] = data[j]
     end
 end
-#=function override!(arch::TableColumn{T}, i::UnitRange, j::Int) where T
-    data = getdata(arch)
-    Threads.@threads for x in i
-        @inbounds data[x] = data[j]
-    end
-end=#
 @generated function override!(arch::TableColumn{T}, i::Int, j::Int) where T
     fields=fieldnames(T)
     expr = Expr(:block)
@@ -585,21 +579,34 @@ end
 
     return expr
 end
-@generated function override!(arch::TableColumn{T}, i::UnitRange, j, s=1) where T
+@generated function swap_override!(arch::TableColumn{T},sw , i::UnitRange, j, s=1) where {T}
     fields=fieldnames(T)
     expr = Expr(:block)
     swaps = expr.args
-    push!(swaps, :(col = getdata(arch)))
+    push!(swaps, :(col = arch))
+    body = quote end
+    datas = []
+
     for f in fields
     	type = fieldtype(T, f)
-    	data = gensym()
-        push!(swaps, quote
-        	$data::Vector{$type} = col.$f
-        	@turbo for x in s:length(i)
-        	    $data[i[x]] =  $data[j[x]]
-        	end
-       end)
+    	push!(datas, gensym())
+    	d = datas[end]
+    	push!(swaps, :($d = col.$f))
     end
+
+    push!(body.args, :(a = i[x]; b = j[x][]; c = sw[x]))
+
+    for d in datas
+    	tmp = gensym()
+    	push!(body.args, :($tmp = $d[b]; $d[b] = $d[c]))
+    	push!(body.args, :($d[a] = $tmp))
+    end
+	
+    push!(swaps, quote
+    	@inbounds for x in s:length(i)
+    	    $body
+    	end
+    end)
 
     return expr
 end
@@ -678,82 +685,82 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     partitions = t.partitions
     createpartition(t, new_arch)
 
-    old_partition = partitions[old_arch]
-    new_partition = partitions[new_arch]
+    old_partition::TablePartition = partitions[old_arch]
+    new_partition::TablePartition = partitions[new_arch]
 
     f1 = old_partition.fill_pos
     f2 = new_partition.fill_pos
 
-    l2 = length(new_partition.zones)
+    old_zones::Vector{TableRange} = old_partition.zones
+    new_zones::Vector{TableRange} = new_partition.zones
 
-    fields = copy(old_partition.components)
-    old_zone = old_partition.zones[end]
+    l2 = length(new_partition.zones)
+    fields = old_partition.components
+
+    old_zone = old_zones[end]
+    new_zone = new_zones[end]
     
-    new_zone = new_partition.zones[end]
     n = length(entities)
     to_fill = UnitRange{Int}[]
 
-    last_new_id = new_zone.e
-    needed = last_new_id + n
-    m = n
-
-    mids = get_id.(entities)
-    ids = getindex.(mids)
+    to_swap = Int[]
     
-    while m >= new_zone.size && f2 <= l2
+    m = n
+    p = n
+    mids = get_id.(entities)
 
-    	endval = new_zone.s + new_zone.size - 1
-    	m -= endval - (new_zone.e)
-    	push!(to_fill, new_zone.e+1:endval)
-    	new_zone.e = endval
+    while p > 0 && f1 > 0
+    	zone = old_zones[f1]
+    	count = zone.e - zone.s + 1
+    	p -= count
+    	append!(to_swap, get_range(zone))
+    	zone.e -= min(count, p)
+    	f1 -= 1
+    end
+    old_partition.fill_pos = max(f1, 1)
+
+    while m > 0 && f2 <= l2
+    	zone = new_zones[f2]
+
+    	endval = zone.s + min(m,zone.size) - 1
+    	r = zone.e+1:endval
+    	
+    	m -= length(r)
+    	push!(to_fill, r)
+    	zone.e = endval
+
     	f2 += 1
     end
 
     if m > 0
     	# Extend partition with new zone
-        push!(new_partition.zones, TableRange(t.row_count+1, t.row_count+m, max(DEFAULT_PARTITION_SIZE, m)))
+        push!(new_zones, TableRange(t.row_count+1, t.row_count+m, max(DEFAULT_PARTITION_SIZE, m)))
         
         push!(to_fill, t.row_count+1:(t.row_count+m))
         resize!(t, t.row_count + max(DEFAULT_PARTITION_SIZE, m))
     end
 
-    new_partition.fill_pos = f2
-
+    new_partition.fill_pos = min(f2, l2)
     columns = t.columns
     
-    !isnothing(comp) && push!(fields, to_symbol(comp))
-
     s = 1
     for r in to_fill
-    	override!(t, r, ids, fields, s)
+    	swap_override!(t, to_swap, r, mids, fields, s)
     	s += length(r)
     end
 
     c = 1
-
-        @inbounds for r in to_fill
-            for i in r
-            	e = entities[c]
-            	id = mids[c]
-            	
-                id[] = i
-                t.entities[i] = e
-                e.archetype = new_arch
-                c += 1
-            end
+    @inbounds for r in to_fill
+        for i in r
+        	e = entities[c]
+        	id = mids[c]
+        	
+            id[] = i
+            t.entities[i] = e
+            e.archetype = new_arch
+            c += 1
         end
-    #end
-
-    zone_count = length(old_partition.zones)
-    while n > 0 && f1 > 0
-        zone = old_partition.zones[f1]
-        gap = zone.e - zone.s
-       	zone.e -= min(gap, n)
-        n > gap && (f1 -= 1)
-        n -= gap
     end
-
-    old_partition.fill_pos = max(f1, 1)
 end
 
 
