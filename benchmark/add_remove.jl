@@ -28,12 +28,13 @@ function setup_world(n_entities::Int)
         push!(entities, create_entity!(world, (; Position=Position(i, i*2))))
     end
 
-    #attach_component(world, entities, Velocity(0,0))
+    attach_component(world, entities, Velocity(0,0))
+    detach_component(world, entities, :Velocity)
 
-    #for e in entities
-    #    attach_component(world, e, Velocity(0,0))
-    #    detach_component(world, e, :Velocity)
-    #end
+    for e in entities
+        attach_component(world, e, Velocity(0,0))
+        detach_component(world, e, :Velocity)
+    end
 
     return (world, entities)
 end
@@ -44,7 +45,7 @@ function benchmark_iteration(n)
         #for e in ents
             attach_component(world, ents, Velocity(0,0))
             #attach_component(world, e, Velocity(0,0))
-            #detach_component(world, ents, :Velocity)
+            detach_component(world, ents, :Velocity)
         #end
     end setup = ((world, entities) = setup_world($n))
 
@@ -55,6 +56,6 @@ function benchmark_iteration(n)
     display(result)
 end
 
-for n in (100, 1_000, 10_000, 100_000)
+for n in (100, 1_000, 10_000, 100_000, 1_000_000)
     benchmark_iteration(n)
 end
