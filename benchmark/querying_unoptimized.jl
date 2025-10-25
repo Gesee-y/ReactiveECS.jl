@@ -22,7 +22,7 @@ function setup_world(n_entities::Int)
     register_component!(world, Velocity)
 
     pos, vel = get_component(world, :Position), get_component(world, :Velocity)
-    @time request_entity!(world, (;Position= (i -> Position(i, i*2)), Velocity=Velocity(1,1)), n_entities)
+    request_entity!(world, (;Position= (i -> Position(i, i*2)), Velocity=Velocity(1,1)), n_entities)
 
     return (pos, vel, @query(world, Position & Velocity))
 end

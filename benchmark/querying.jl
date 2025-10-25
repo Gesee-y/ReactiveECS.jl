@@ -45,6 +45,6 @@ function benchmark_iteration(n)
     display(result)
 end
 
-for n in (100, 1_000, 10_000, 100_000)
+for n in (100, 1_000, 10_000, 100_000, 1_000_000, 15_000_000)
     benchmark_iteration(n)
 end

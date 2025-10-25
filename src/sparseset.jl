@@ -105,6 +105,18 @@ Base.setindex!(m::ArchetypeMap, v, key) = setindex!(m, v, UInt128(key))
     m.vals[i] = val
 end
 
+function Base.iterate(m::ArchetypeMap, state=1)
+    while state <= length(m.keys)
+        if m.used[state]
+            return ((m.keys[state], m.vals[state]), state+1)
+        end
+    
+        state += 1
+    end
+
+    return nothing
+end
+
 function Base.haskey(m::ArchetypeMap, key)
     i = (key * 11400714819323198485) & m.mask + 1
     while m.used[i]

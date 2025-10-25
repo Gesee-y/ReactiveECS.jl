@@ -96,6 +96,14 @@ mutable struct ECSManager
 	ECSManager() = new(Vector{Optional{Entity}}(), Dict{Symbol,ArchTable}(:main => ArchTable()), :main, 
         Dict{Symbol, Int}(), 1, Int[], Dict{AbstractSystem, Query}(), LogTracer(), Atomic{Int}(0), Atomic{Int}(0), 
         Condition())
+    ECSManager(args...) = begin
+        ecs = ECSManager()
+        for arg in args
+            register_component!(ecs, arg)
+        end
+
+        return ecs
+    end
 end
 
 
