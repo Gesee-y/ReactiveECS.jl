@@ -14,21 +14,19 @@ struct SparseSet{T,V}
     end
 end
 
-struct StaticHashMap{K,V}
-    keys::Vector{K}
+mutable struct ArchetypeMap{V}
+    keys::Vector{UInt128}
     vals::Vector{V}
     used::BitVector
+    mask::Int
 
     ## Constructors
 
-    function StaticHashMap{K,V}(capacity) where {K,V}
-	    keys = fill(zero(K), capacity)
-	    vals = Vector{V}(undef, capacity)
-	    used = falses(capacity)
-	    return new{K,V}(keys, vals, used)
+    function ArchetypeMap{V}(capacity::Int=256) where V
+        cap = nextpow(2, capacity)
+        new{V}(fill(0x0, cap), Vector{V}(undef, cap), falses(cap), cap-1)
     end
 end
-
 
 ############################################################ OPERATIONS ###################################################################
 
@@ -65,20 +63,6 @@ end
 hasindex(s::SparseSet, id) = s.sparse[id] != 0
 
 ###################### HashMap
-
-mutable struct ArchetypeMap{V}
-    keys::Vector{UInt128}
-    vals::Vector{V}
-    used::BitVector
-    mask::Int
-
-    ## Constructors
-
-    function ArchetypeMap{V}(capacity::Int=256) where V
-        cap = nextpow(2, capacity)
-        new{V}(fill(0x0, cap), Vector{V}(undef, cap), falses(cap), cap-1)
-    end
-end
 
 Base.getindex(m::ArchetypeMap, key) = getindex(m, UInt128(key))
 @inline function Base.getindex(m::ArchetypeMap, key::UInt128)
