@@ -10,6 +10,7 @@ const SUITE = BenchmarkGroup()
 
 include("BenchTypes.jl")
 
+include("bench_world_add_remove_large.jl")
 include("bench_query_create.jl")
 include("bench_query_posvel.jl")
 include("bench_query_posvel_optim.jl")

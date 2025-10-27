@@ -39,6 +39,7 @@ const MInt128 = MInt{Int128}
 
 ###################################################### OPERATIONS ########################################################
 
+Base.Int(m::MInt) = m[]
 Base.Unsigned(n::MInt) = n
 Base.getindex(n::MInt) = getfield(n, :value)
 Base.setindex!(n::MInt, v::Integer) = setfield!(n, :value, v)

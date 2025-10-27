@@ -232,7 +232,7 @@ function setrowrange!(t::ArchTable, r::UnitRange{Int}, data)
 	    setrowrange!(vec, r, v)
 	end
 end
-@generated function setrowrange!(arch::TableColumn{T}, r::UnitRange, v) where T
+@generated function setrowrange!(arch::TableColumn{T}, r, v) where T
     fields=fieldnames(T)
     expr = Expr(:block)
     swaps = expr.args
@@ -255,6 +255,58 @@ end
 	
     push!(swaps, quote
     	for i in r
+    	    $body
+    	end
+    end)
+
+    return expr
+end
+@generated function setrowrange!(idx, columns, v, ::Val{N}) where {N}
+    expr = Expr(:block)
+    swaps = expr.args
+    colsym = []
+    valsym = []
+
+    for i in 1:N
+    	push!(colsym, gensym())
+    	push!(valsym, gensym())
+    	s = colsym[end]
+    	vs = valsym[end]
+    	push!(swaps, :($s = columns[$i]; $vs = v[$i]))
+    end
+    body = quote end
+    datas = []
+
+    for i in eachindex(colsym)
+    	col = colsym[i]
+    	T = columns.parameters[i].parameters[1]
+    	fields = fieldnames(T)
+	    push!(datas, [])
+	    for f in fields
+	    	type = fieldtype(T, f)
+	    	push!(datas[end], gensym())
+	    	d = datas[end][end]
+	    	push!(swaps, :($d = $col.$f))
+	    end
+	end
+
+    for i in eachindex(colsym)
+    	T = columns.parameters[i].parameters[1]
+    	fields = fieldnames(T)
+    	vs = valsym[i]
+    	data = datas[i]
+
+    	for j in eachindex(fields)
+	    	d = data[j]
+	    	f = fields[j]
+
+	    	push!(body.args, :($d[$j] = $vs.$f))
+	    end
+    end
+	
+    push!(swaps, quote
+    	for x in idx
+    		i = x[]
     	    $body
     	end
     end)
@@ -728,7 +780,7 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
         entities[j].ID[] = i
     end
 end
-function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new_arch, comp=nothing)
+function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new_arch, new=true)
     partitions = t.partitions
     createpartition(t, new_arch)
 
@@ -742,7 +794,7 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     new_zones::Vector{TableRange} = new_partition.zones
 
     l2 = length(new_partition.zones)
-    fields = old_partition.components
+    fields = new ? new_partition.components : old_partition.components
 
     old_zone = old_zones[end]
     new_zone = new_zones[end]
