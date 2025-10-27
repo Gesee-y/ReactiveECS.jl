@@ -147,7 +147,7 @@ register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = begin
         ecs.bitpos += 1
     end
 
-    register_component!(get_table(ecs),1 << ecs.components_ids[Symbol(T)], T)
+    register_component!(get_table(ecs),UInt128(1) << ecs.components_ids[Symbol(T)], T)
 end
 
 """
