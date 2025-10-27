@@ -17,9 +17,10 @@ end
 
 function benchmark_world_posvel(args, n)
     entities, pos_column, vel_column = args
-    for e in entities
-        pos, vel = pos_column[e], vel_column[e]
-        pos_column[e] = Position(pos.x + vel.dx, pos.y + vel.dy)
+    @inbounds for e in entities
+        i = get_id(e)[]
+        pos, vel = pos_column[i], vel_column[i]
+        pos_column[i] = Position(pos.x + vel.dx, pos.y + vel.dy)
     end
 end
 

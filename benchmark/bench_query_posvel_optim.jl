@@ -5,7 +5,7 @@ function setup_query_posvel_op(n_entities::Int)
     register_component!(world, Velocity)
 
     pos, vel = get_component(world, :Position), get_component(world, :Velocity)
-    request_entity!(world, (;Position= (i -> Position(i, i*2)), Velocity=Velocity(1,1)), n_entities)
+    frequest_entity!(world, (;Position= (i -> Position(i, i*2)), Velocity=Velocity(1,1)), n_entities)
 
     return (pos.x, pos.y, vel.dx, vel.dy, @query(world, Position & Velocity))
 end

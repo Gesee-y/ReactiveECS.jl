@@ -119,7 +119,7 @@ end
 ##################################################### Functions #########################################################
 
 Base.eachindex(v::TableColumn) = eachindex(getdata(v))
-Base.getindex(v::TableColumn, i) = getdata(v)[i]
+Base.getindex(v::TableColumn, i) = getfield(v, :data)[i]
 Base.setindex!(v::TableColumn, val, i) = (getdata(v)[i] = val)
 Base.length(v::TableColumn) = length(getdata(v))
 getdata(v::TableColumn) = getfield(v, :data)
@@ -222,6 +222,47 @@ end
 This set a given range of a table with the given `data` which is a dictionnary or a named tuple.
 """
 function setrowrange!(t::ArchTable, r::UnitRange{Int}, data)
+	columns::Dict{Symbol, TableColumn} = t.columns
+	key = keys(data)
+	vals = values(data)
+	@inbounds for j in eachindex(key)
+	    k = key[j]
+	    v = vals[j]
+	    vec = columns[k]
+	    setrowrange!(vec, r, v)
+	end
+end
+@generated function setrowrange!(arch::TableColumn{T}, r::UnitRange, v) where T
+    fields=fieldnames(T)
+    expr = Expr(:block)
+    swaps = expr.args
+    push!(swaps, :(col = arch))
+    body = quote end
+    datas = []
+
+    for f in fields
+    	type = fieldtype(T, f)
+    	push!(datas, gensym())
+    	d = datas[end]
+    	push!(swaps, :($d = col.$f))
+    end
+
+    for i in eachindex(datas)
+    	d = datas[i]
+    	f = fields[i]
+    	push!(body.args, :($d[i] = v.$f))
+    end
+	
+    push!(swaps, quote
+    	for i in r
+    	    $body
+    	end
+    end)
+
+    return expr
+end
+
+function fsetrowrange!(t::ArchTable, r::UnitRange{Int}, data)
 	columns::Dict{Symbol, TableColumn} = t.columns
 	key = keys(data)
 	vals = values(data)

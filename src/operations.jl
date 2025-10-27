@@ -4,7 +4,7 @@
 
 ######################################################## Export #########################################################
 
-export create_entity!, request_entity!, remove_entity!, attach_component, detach_component
+export create_entity!, request_entity!, frequest_entity!, remove_entity!, attach_component, detach_component
 
 ######################################################### Core ##########################################################
 
@@ -78,6 +78,24 @@ function request_entity!(ecs::ECSManager, comp::NamedTuple, count::Int; parent=e
     
     for r in ranges
     	setrowrange!(table, r, comp)
+    end
+
+    #r = EntityRange(s,e,0,ref,key,parent_id,signature)
+	#return r
+end
+function frequest_entity!(ecs::ECSManager, comp::NamedTuple, count::Int; parent=ecs)
+	table = get_table(ecs)
+	key = keys(comp)
+	partitions = table.partitions
+    parent_id = get_id(parent)
+    ref = WeakRef(ecs)
+
+    # We get the bit representation of that set of components
+	signature = get_bits(table, key)
+	ranges = allocate_entity(table, count, signature)
+    
+    for r in ranges
+    	fsetrowrange!(table, r, comp)
     end
 
     #r = EntityRange(s,e,0,ref,key,parent_id,signature)
