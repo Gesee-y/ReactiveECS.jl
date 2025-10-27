@@ -19,7 +19,8 @@ This represent the result of a query. `masks` is all the mask that represent the
 `partitions` is evry partitions that has matched the query.
 """
 mutable struct Query
-    masks::Vector{NTuple{2, UInt128}}         # Bitmasks to match
+    mask::UInt128
+    exclude::UInt128
     partitions::Vector{Tuple{WeakRef,TablePartition}}  # WeakRefs to the partitions
 end
 
@@ -42,7 +43,7 @@ macro query(world_expr, cond_expr)
         tables = get_tables($(world))
         bitpos = $(world).components_ids
         mask,exclude = _to_mask(bitpos,$cond)
-        matching_parts::Vector{Tuple{WeakRef,TablePartition}} = Tuple{WeakRef,TablePartition}[]
+        matching_parts = Tuple{WeakRef,TablePartition}[]
         for table in values(tables)
             for (arch_mask, part) in table.partitions
                 if ((arch_mask & mask) == mask) && (arch_mask & exclude) == arch_mask
@@ -51,7 +52,7 @@ macro query(world_expr, cond_expr)
             end
         end
 
-        Query(NTuple{2, UInt128}[(mask, exclude)], matching_parts)
+        Query(mask, exclude, matching_parts)
     end
 end
 

@@ -13,7 +13,7 @@ end
 function benchmark_query_posvel_op(args, n)
     x, y, dx, dy, query = args
     @foreachrange query begin
-        @inbounds for i in range
+        ReactiveECS.@turbo for i in range
             x[i] += dx[i]
             y[i] += dy[i]
         end
