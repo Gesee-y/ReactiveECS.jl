@@ -127,6 +127,8 @@ getlocks(v::TableColumn) = getfield(v, :locks)
 get_lock(v::TableColumn, path::NTuple{N,Symbol}) where N = HierarchicalLocks.get_node(getlocks(v).root, path)
 get_id(t::TableColumn) = getfield(t, :id)
 Base.getproperty(v::TableColumn, s::Symbol) = get_field(v, Val(s))
+Base.getindex(c::TableColumn, e::Entity) = c[get_id(e)[]]
+Base.setindex!(c::TableColumn, v, e::Entity) = setindex!(c, v, get_id(e)[])
 
 """
     register_component!(table::ArchTable, T::Type)
@@ -291,10 +293,12 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=DEFAUL
     # If after all that there is still some entities to add
 	if m > 0
 		# We create a new range for it with the given offset
-		push!(zones, TableRange(t.row_count+1, t.row_count+m, offset))
-		push!(part_to_fill, length(zones)) # We add this new zone as to be filled
+		size = max(m, offset)
+		push!(zones, TableRange(t.row_count+1, t.row_count+m, size))
+		push!(intervals, t.row_count+1:t.row_count+m)
+		partition.fill_pos = length(zones)
 	    
-	    nsize = t.row_count+offset
+	    nsize = t.row_count+size
 		resize!(t, nsize) # Finally we just resize our table
 	end
 
@@ -424,14 +428,16 @@ end
 
 function override_remove!(t::ArchTable, e::Entity)
 	partition = t.partitions[e.archetype] 
+	components = partition.components
+	f = partition.fill_pos
 	entities = t.entities
 	zones = partition.zones
-	last_zone = zones[end]
+	last_zone = zones[f]
 
 	i = get_id(e)[]
     
     # If there are some zone to fill
-	@time if !hasonlyoneelt(last_zone)
+	if !hasonlyoneelt(last_zone)
 		j = last_zone[end]
 
         # If the last index is the same as i then we can just shrink the zone
@@ -449,17 +455,17 @@ function override_remove!(t::ArchTable, e::Entity)
 			    e.alive = false
 			end
 
-			override!(t, i, j; fields=e.components)
+			override!(t, i, j, components)
 		end
 	else
 		j = partition.zones[end][end]
-		override!(t, i, j; fields=e.components)
+		override!(t, i, j, components)
 		partition.zones[end].s -= 1
 		entities[i] = entities[j]
 	    e.ID[], entities[i].ID[] = j, i
 	    e.alive = false
 		
-		pop!(partition.zones)
+		partition.fill_pos -= 1
 	end
 
     t.entity_count -= 1

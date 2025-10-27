@@ -69,20 +69,19 @@ function request_entity!(ecs::ECSManager, comp::NamedTuple, count::Int; parent=e
 	table = get_table(ecs)
 	key = keys(comp)
 	partitions = table.partitions
-    s = table.row_count+1
-    e = table.row_count+count
     parent_id = get_id(parent)
     ref = WeakRef(ecs)
-    entities = Vector{Entity}(undef, count)
 
     # We get the bit representation of that set of components
 	signature = get_bits(table, key)
-	allocate_entity(table, count, signature)
+	ranges = allocate_entity(table, count, signature)
     
-    setrowrange!(table, s:e, comp)
+    for r in ranges
+    	setrowrange!(table, r, comp)
+    end
 
-    r = EntityRange(s,e,0,ref,key,parent_id,signature)
-	return r
+    #r = EntityRange(s,e,0,ref,key,parent_id,signature)
+	#return r
 end
 function request_entity!(ecs::ECSManager, key::Tuple, count::Int; parent=ecs)
 	table = get_table(ecs)
