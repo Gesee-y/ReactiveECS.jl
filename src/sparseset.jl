@@ -19,12 +19,13 @@ mutable struct ArchetypeMap{V}
     vals::Vector{V}
     used::BitVector
     mask::Int
+    index::Vector{Int}
 
     ## Constructors
 
     function ArchetypeMap{V}(capacity::Int=256) where V
         cap = nextpow(2, capacity)
-        new{V}(fill(0x0, cap), Vector{V}(undef, cap), falses(cap), cap-1)
+        new{V}(fill(0x0, cap), Vector{V}(undef, cap), falses(cap), cap-1, Int[])
     end
 end
 
@@ -87,18 +88,13 @@ Base.setindex!(m::ArchetypeMap, v, key) = setindex!(m, v, UInt128(key))
     m.used[i] = true
     m.keys[i] = key
     m.vals[i] = val
+    push!(m.index, i)
 end
 
 function Base.iterate(m::ArchetypeMap, state=1)
-    while state <= length(m.keys)
-        if m.used[state]
-            return ((m.keys[state], m.vals[state]), state+1)
-        end
-    
-        state += 1
-    end
-
-    return nothing
+    state <= length(m.index) || return nothing
+    i = m.index[state]
+    return ((m.keys[i], m.vals[i]), state+1)
 end
 
 function Base.haskey(m::ArchetypeMap, key)

@@ -238,7 +238,7 @@ end
     swaps = expr.args
     push!(swaps, :(col = arch))
     body = quote end
-    datas = []
+    datas = Symbol[]
 
     for f in fields
     	type = fieldtype(T, f)
@@ -295,7 +295,7 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=DEFAUL
     	partitions[archetype] = partition # And creating that new archetype
 
         push!(intervals, t.row_count+1:t.row_count+n)
-        resize!(t, length(t.entities)+n+1)
+        resize!(t, length(t.row_count)+n)
         t.entity_count += n
     	
         return intervals
