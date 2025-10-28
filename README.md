@@ -110,16 +110,15 @@ This allows for extreme flexibility, such as:
 
 ### Memory Layout  
 
-Memory layout is critical in every ECS, as it directly impacts performance and memory consumption. It’s what separates a good ECS from a bad one.  
+Memory layout is critical in every ECS, as it directly impacts performance and memory consumption. It’s what separates a good ECS from a bad one.
 
-RECS uses a **database-like memory layout** instead of archetype tables.  
+so long story short, RECS use a sparse set storage without sparse set.
 
-How does it work?  
-- Components are registered as columns with an SoA layout.  
-- Entities are just rows in the table.  
+It means that each component has his own dense table acting as columns, and entities are ids, where in each column, the same id = the same entity
+the set of column then form a table, kinda like in databases. 
 
 The table is **dense**, ensuring maximum performances when iterating on it.
-This layout, however, has a side effect: every entity has every component, even unused ones... And that's what empowers RECS. 
+This layout, however, has a side effect: every entity has every component, even unused ones since it's the only way to maintain the consistency "same id = same entity" in every column without getting sparse.
 
 So let's look at your probable concerns: 
 
@@ -149,8 +148,10 @@ This layout offers several advantages:
 - **Stable once peak memory is reached**: At that point the ECS endlessly reuse table slots and no more allocate or desallocate.
 - **No GC**: Since memory is constantly reused instead of freed,the GC is never triggered which means no stutter during intense gameplay.
 - **Less pointer chasing**: Compared to archetypal ECS designs, there are fewer tables, which reduces indirection and improves cache locality.
-- **Fused updates**: Sunce every system can accurately access any data, you can easily merge multiple system into one for an unified update.
-- **Fast structural changes, fast iterations** 
+- **Fused updates**: Since every system can accurately access any data, you can easily merge multiple system into one for an unified update.
+- **Fast iterations** : Iterating is at the same level as in archetype ECS
+- **Fast structural changes** : Adding/removing entites or components is at least 2× faster than in archetype-based ECS, see [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/benchmark/bench.csv)
+- **Blazing fast random component access": It’s as fast as indexing an array.
 
 > This layout can be considered as a generalization of the common memory model (archetypes and sparse sets). By explicitly creating a table for each components combination, you make an archetype ECS. By adding an indexing layer above the tables, you make a sparse set ECS
 
