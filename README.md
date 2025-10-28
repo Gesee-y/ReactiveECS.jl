@@ -162,31 +162,62 @@ This layout offers several advantages:
 It’s a critical aspect of any ECS, and RECS doesn’t neglect it.  
 Its partitioned table offers performance comparable to an archetype-based ECS.  
 
-Partitions (symbolic archetypes) pack similar entities continuously in memory without indirections, enabling top performance and reducing pointer chasing. This also minimizes the need for frequent table switches, which is a common overhead in archetype-based ECS.
+```csv
+Name,N,Time ns per entity
+benchmark_query_create,1000,459.2785
+benchmark_query_posvel,100,3.837777777777778
+benchmark_query_posvel,1000,3.7105333333333332
+benchmark_query_posvel,10000,3.908000000000001
+benchmark_query_posvel,100000,3.15001
+benchmark_query_posvel,1000000,3.4405435
+benchmark_query_posvel_optimized,100,1.4467233009708738
+benchmark_query_posvel_optimized,1000,1.2325510204081633
+benchmark_query_posvel_optimized,10000,1.5658
+benchmark_query_posvel_optimized,100000,2.4513300000000005
+benchmark_query_posvel_optimized,1000000,3.482188
+benchmark_world_add_remove,100,112.5
+benchmark_world_add_remove,1000,50.921
+benchmark_world_add_remove,10000,60.6319
+benchmark_world_add_remove,100000,133.58749500000002
+benchmark_world_add_remove_8,100,321.71
+benchmark_world_add_remove_8,10000,64.65825000000001
+benchmark_world_add_remove_8_large,100,1227.64
+benchmark_world_add_remove_8_large,10000,80.6451
+benchmark_world_add_remove_large,100,1109.21
+benchmark_world_add_remove_large,10000,91.02680000000001
+benchmark_world_get_1,100,0.7212592592592593
+benchmark_world_get_1,1000,0.6215106382978725
+benchmark_world_get_1,10000,0.6217250000000001
+benchmark_world_get_1,100000,1.05001
+benchmark_world_get_5,100,0.7248387096774194
+benchmark_world_get_5,1000,0.6264347826086957
+benchmark_world_get_5,10000,0.710525
+benchmark_world_get_5,100000,1.02237
+benchmark_world_new_entity_1,100,8.684
+benchmark_world_new_entity_1,1000,5.526
+benchmark_world_new_entity_1,10000,14.013300000000003
+benchmark_world_new_entity_1,100000,29.352775
+benchmark_world_new_entity_5,100,131.57666666666665
+benchmark_world_new_entity_5,1000,28.027
+benchmark_world_new_entity_5,10000,18.908
+benchmark_world_new_entity_5,100000,23.9863
+benchmark_world_posvel,100,1.5339378238341967
+benchmark_world_posvel,1000,1.5789473684210524
+benchmark_world_posvel,10000,3.2369
+benchmark_world_posvel,100000,3.4539650000000006
+benchmark_world_set_1,100,0.9672516556291392
+benchmark_world_set_1,10000,1.8552500000000003
+benchmark_world_set_5,100,6.693043478260871
+benchmark_world_set_5,10000,12.3948
+```
 
-This topic is discussed in more detail [here](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
+> Quer_posvel = iterating a query for a pos+=vel update
+> add_remove = adding removing a component
+> add_remove_large = adding removing a component in a large population of components
+> world_posvel = updating a set of entity but using random access
 
-Benchmarks have already been conducted against [Overseer.jl](https://github.com/louisponet/Overseer.jl) in two scenarios:
 
-- **One system translating 100k entities with 1 component** on an Intel Pentium T4400:  
-  - RECS: **163µs** with vectorization, **623µs** without  
-  - Overseer: **2.7ms**  
-
-- **Three systems performing differential calculations on 100k entities for various movements**:  
-  - RECS: **10ms** without vectorization  
-  - Overseer: **12ms**  
-
-You can read the full [article here](https://discourse.julialang.org/t/reactiveecs-jl-v2-0-0-breaking-changes-for-massive-performance-boosts/130564/4).
-
-The foolowing throughputs have been obtained on an Intel core i5 with 4 core.
-
-- **Spawning entities with 3 components**
-  - With components initialization 
-    - Monothread: 71.4M ent/sec 
-    - Multithread: 710M ent/sec 
-  - Without initialization: 6B ent/sec
-- **A move System (just pos += vel)**: 16.33M ent/frame
-- **Fragmentation overhead with 10 randomized components across 25500 entities**: 15ns (see [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/test/overhead_test.jl)
+fragmentation  overhead with 10 randomized components across 25500 entities**: 15ns (see [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/test/overhead_test.jl)
 
 > In contrast with traditional ECS whose avoids the worst case, RECS constantly run in it (max possible memory usage, max possible fragmentation, etc). This mean it would be hard to have worse than the performances obtained in the benchmarks
 
