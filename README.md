@@ -151,7 +151,7 @@ This layout offers several advantages:
 - **Fused updates**: Since every system can accurately access any data, you can easily merge multiple system into one for an unified update.
 - **Fast iterations** : Iterating is at the same level as in archetype ECS
 - **Fast structural changes** : Adding/removing entites or components is at least 2× faster than in archetype-based ECS, see [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/benchmark/bench.csv)
-- **Blazing fast random component access": It’s as fast as indexing an array.
+- **Blazing fast random component access": sub-ns random access, It’s as fast as indexing an array.
 
 > This layout can be considered as a generalization of the common memory model (archetypes and sparse sets). By explicitly creating a table for each components combination, you make an archetype ECS. By adding an indexing layer above the tables, you make a sparse set ECS
 
