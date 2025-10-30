@@ -220,35 +220,41 @@ end
 
 This set a given range of a table with the given `data` which is a dictionnary or a named tuple.
 """
-function setrowrange!(t::ArchTable, r::UnitRange{Int}, data)
+function setrowrange!(t::ArchTable, range::UnitRange{Int}, data)
 	columns::Dict{Symbol, TableColumn} = t.columns
 	key = keys(data)
 	vals = values(data)
-	l = length(r)
+	l = length(range)
+	m= range[begin]
 	@inbounds for j in eachindex(key)
 	    k = key[j]
 	    v = vals[j]
 	    vec = getdata(columns[k])
 
-	    m= r[begin]
-	    #println(vec.data)
-	    #println(vec.map)
-	    #println(m)
 	    id = vec.map[m]
 	    block = vec.data[id]
 	    offs = vec.offset[id]
-	    l2 = length(block)
+	    r = offset(range, offs)
 
-	    for i in r
-	    	block[i-offs] = v
+	    @threads for i in r
+	    	@inbounds block[i] = v
 	    end
 	end
 end
 function setrowrange!(t::TableColumn, vec, c)
 	col = getdata(t)
 
-	@inbounds for id in vec
+	for id in vec
 		col[id[]] = c
+	end
+end
+function setrowrange!(idx, columns, v)
+	for x in idx
+		i = x[]
+		for j in eachindex(v)
+			col = getdata(columns[j])
+			col[i] = v[j]
+		end
 	end
 end
 @generated function setrowrange!(idx, columns, v, ::Val{N}) where {N}
@@ -265,11 +271,8 @@ end
     	push!(swaps, :($s = columns[$i]; $vs = v[$i]))
     end
     body = quote end
-    datas = []
 
     for i in eachindex(colsym)
-    	T = columns.parameters[i].parameters[1]
-    	fields = fieldnames(T)
     	vs = valsym[i]
     	col = colsym[i]
 
@@ -277,9 +280,9 @@ end
     end
 	
     push!(swaps, quote
-    	@inbounds for x in idx
+    	for x in idx
     		i = x[]
-    	    $body
+    	    @inbounds $body
     	end
     end)
 
@@ -623,12 +626,12 @@ function override!(t::ArchTable, e1::Entity, e2::Entity)
 end
 function override!(arch::TableColumn{T}, i::Int, j::Int) where T
     data = getdata(arch)
-    @inbounds data[i] = data[j]
+    data[i] = data[j]
 end
 function override!(arch::TableColumn{T}, i::UnitRange, j::Int) where T
     data = getdata(arch)
     Threads.@threads for x in i
-        @inbounds data[x] = data[j]
+        data[x] = data[j]
     end
 end
 function swap_override!(arch::TableColumn{T},sw , i::UnitRange, j, s=1) where {T}
@@ -681,8 +684,13 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
             new_id = nz.e
         else
             push!(new_partition.zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
-            resize!(t, t.row_count + DEFAULT_PARTITION_SIZE)
-            new_id = t.row_count
+            for c in fields
+        	    prealloc_range(getdata(t.columns[c]), t.row_count+1:t.row_count + DEFAULT_PARTITION_SIZE)
+            end
+            new_id = t.row_count+1
+
+            resize!(t, t.row_count + DEFAULT_PARTITION_SIZE+1)
+            
         end
         new_partition.fill_pos += 1
     else
@@ -694,7 +702,7 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
     entities[new_id] = e
 
     # Swap structs directly
-    @inbounds begin
+    begin
         for f in fields
             col = t.columns[f]
             override!(col, new_id, i)
@@ -765,10 +773,14 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
 
     if m > 0
     	# Extend partition with new zone
-        push!(new_zones, TableRange(t.row_count+1, t.row_count+m, max(DEFAULT_PARTITION_SIZE, m)))
+    	size = max(DEFAULT_PARTITION_SIZE, m)
+        push!(new_zones, TableRange(t.row_count+1, t.row_count+m, size))
         
         push!(to_fill, t.row_count+1:(t.row_count+m))
-        resize!(t, t.row_count + max(DEFAULT_PARTITION_SIZE, m))
+        for c in fields
+        	prealloc_range(getdata(t.columns[c]), t.row_count+1:t.row_count + size)
+        end
+        resize!(t, t.row_count + size+1)
     end
 
     new_partition.fill_pos = min(f2, l2)

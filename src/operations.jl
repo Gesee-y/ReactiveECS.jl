@@ -154,28 +154,28 @@ function attach_component(ecs::ECSManager, e::Entity, c::AbstractComponent...)
 		
 		i = get_id(e)[]
 		columns = table.columns
-		for j in eachindex(symb)
+		@inbounds for j in eachindex(symb)
 		    columns[symb[j]][i] = c[j]
 		end
 		e.archetype = signature
 	end
 end
-function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComponent)
-	isempty(ents) && return
-	
-	e = ents[1]
-	symb = to_symbol(c)
-	bit::UInt128 = one(UInt128) << ecs.components_ids[symb]
-	if iszero(e.archetype & bit)
-		table = get_table(ecs)
-		old_signature = e.archetype
-		signature = old_signature | bit
-		change_archetype!(table, ents, old_signature, signature)
-		col = table.columns[symb] 
-
-		setrowrange!(col, get_id.(ents), c)
-	end
-end
+#function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComponent)
+#	isempty(ents) && return
+#	
+#	e = ents[1]
+#	symb = to_symbol(c)
+#	bit::UInt128 = one(UInt128) << ecs.components_ids[symb]
+#	if iszero(e.archetype & bit)
+#		table = get_table(ecs)
+#		old_signature = e.archetype
+#		signature = old_signature | bit
+#		change_archetype!(table, ents, old_signature, signature)
+#		col = table.columns[symb] 
+#
+#		setrowrange!(col, get_id.(ents), c)
+#	end
+#end
 function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComponent...)
 	isempty(ents) && return
 	
