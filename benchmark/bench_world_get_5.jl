@@ -16,12 +16,10 @@ end
 
 function benchmark_world_get_5(args, n)
     entities, position, velocity, A, B, C = args
-    px,dx,ax,bx,cx = position.x,velocity.dx, A.x, B.x, C.x
     sum = 0.0
     @inbounds for i in entities
-        #pos, vel, a, b, c = position[i], velocity[i], A[i], B[i], C[i]
-        #sum += pos.x + vel.dx + a.x + b.x + c.x
-        sum += px[i] + dx[i] + ax[i] + bx[i] + cx[i]
+        pos, vel, a, b, c = position[i], velocity[i], A[i], B[i], C[i]
+        sum += pos.x + vel.dx + a.x + b.x + c.x
     end
 
     return sum

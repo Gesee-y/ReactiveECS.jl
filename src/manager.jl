@@ -6,7 +6,7 @@
 
 export Query, ECSManager, SysToken
 export @query, @foreachrange
-export dispatch_data, register_component!, get_component, blocker, get_lock
+export dispatch_data, register_component!, get_component, blocker, get_lock, get_component_offset
 
 ######################################################### Core ##########################################################
 
@@ -63,6 +63,7 @@ macro foreachrange(query, body)
             zones::Vector{TableRange} = partition[2].zones
 
             for zone in zones
+
                 range = get_range(zone)
 
                 $body
@@ -160,6 +161,18 @@ get_component(ecs::ECSManager, s::Symbol) = begin
     return w[s]
 end
 get_component(ecs::ECSManager, T::Type) = get_component(ecs, to_symbol(type))
+function get_component(ecs::ECSManager, t, r::UnitRange)
+    m = r[begin]
+    comp = getdata(get_component(ecs, t))
+    id = comp.map[m]
+    return m.data[id]
+end
+function get_component_offset(ecs::ECSManager, t, r::UnitRange)
+    m = r[begin]
+    comp = getdata(get_component(ecs, t))
+    id = comp.map[m]
+    return m.offset[id]
+end
 
 Base.iterate(q::Query, i=1) = i > length(q.partitions) ? nothing : (q.partitions[i], i+1)
 

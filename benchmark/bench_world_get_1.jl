@@ -15,12 +15,13 @@ end
 
 function benchmark_world_get_1(args, n)
     entities, pos_column = args
-    x = pos_column.x
     sum = 0.0
     @inbounds for e in entities
         i = get_id(e)[]
-        sum += x[i]
+        pos = pos_column[i]
+        sum += pos.x
     end
+    return sum
 end
 
 for n in (100, 1_000, 10_000, 100_000)

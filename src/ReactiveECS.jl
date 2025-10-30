@@ -1,14 +1,15 @@
 module ReactiveECS
 
 using Reexport
-using StructArrays
 
 include(joinpath("NodeTree.jl", "src", "NodeTree.jl"))
 include(joinpath("Notifyers.jl", "src", "Notifyers.jl"))
+include(joinpath("FragmentArrays", "src", "FragmentArrays.jl"))
 include("hierarchical_lock.jl")
 
 @reexport using .NodeTree
 @reexport using .Notifyers
+@reexport using .FragmentArrays
 using .Threads
 @reexport using .HierarchicalLocks
 

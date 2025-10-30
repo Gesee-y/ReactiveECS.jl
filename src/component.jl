@@ -40,15 +40,6 @@ macro component(name, block)
 			export $struct_name
 			
 			to_symbol(::Type{$struct_name}) = Symbol($ex)
-
-			for field in fieldnames($struct_name)
-				T = $struct_name
-				f = QuoteNode(field)
-				type = fieldtype($struct_name, field)
-				eval(:(get_field(st::TableColumn{$T},
-					::Val{$f})::Vector{$type} = getproperty(getfield(st, :data), ($f))
-				))
-		    end
         end
     )
 end
