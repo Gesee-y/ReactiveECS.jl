@@ -11,19 +11,20 @@ function setup_world_get_5(n_entities::Int)
             CompB=CompB(0, 0), CompC=CompC(0, 0))))
     end
 
-    return (entities, pos, vel, A, B, C)
+    return (getindex.(get_id.(entities)), pos, vel, A, B, C)
 end
 
 function benchmark_world_get_5(args, n)
     entities, position, velocity, A, B, C = args
     px,dx,ax,bx,cx = position.x,velocity.dx, A.x, B.x, C.x
     sum = 0.0
-    @inbounds for e in entities
-        i = get_id(e)[]
+    @inbounds for i in entities
         #pos, vel, a, b, c = position[i], velocity[i], A[i], B[i], C[i]
         #sum += pos.x + vel.dx + a.x + b.x + c.x
         sum += px[i] + dx[i] + ax[i] + bx[i] + cx[i]
     end
+
+    return sum
 end
 
 for n in (100, 1_000, 10_000, 100_000)
