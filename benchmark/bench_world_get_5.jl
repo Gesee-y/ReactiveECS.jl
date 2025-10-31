@@ -11,7 +11,7 @@ function setup_world_get_5(n_entities::Int)
             CompB=CompB(0, 0), CompC=CompC(0, 0))))
     end
 
-    return (getindex.(get_id.(entities)), pos, vel, A, B, C)
+    return (getindex.(get_id.(entities)), getdata(pos), getdata(vel), getdata(A), getdata(B), getdata(C))
 end
 
 function benchmark_world_get_5(args, n)

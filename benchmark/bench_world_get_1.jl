@@ -10,14 +10,13 @@ function setup_world_get_1(n_entities::Int)
         push!(entities, create_entity!(world, (; Position=Position(i, i*2))))
     end
 
-    return (entities, pos)
+    return (getindex.(get_id.(entities)), getdata(pos))
 end
 
 function benchmark_world_get_1(args, n)
     entities, pos_column = args
     sum = 0.0
-    @inbounds for e in entities
-        i = get_id(e)[]
+    @inbounds for i in entities
         pos = pos_column[i]
         sum += pos.x
     end
