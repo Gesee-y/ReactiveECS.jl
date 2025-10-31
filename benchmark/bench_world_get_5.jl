@@ -11,17 +11,26 @@ function setup_world_get_5(n_entities::Int)
             CompB=CompB(0, 0), CompC=CompC(0, 0))))
     end
 
-    return (getindex.(get_id.(entities)), getdata(pos), getdata(vel), getdata(A), getdata(B), getdata(C))
+    ids = getindex.(get_id.(entities))
+
+    return get_iterator(getdata(pos), ids), get_iterator(getdata(vel), ids), get_iterator(getdata(A), ids), get_iterator(getdata(B), ids), get_iterator(getdata(C), ids)
 end
 
 function benchmark_world_get_5(args, n)
-    entities, position, velocity, A, B, C = args
+    pos_iter, vel_iter, A_iter, B_iter, C_iter = args
     sum = 0.0
-    @inbounds for i in entities
-        pos, vel, a, b, c = position[i], velocity[i], A[i], B[i], C[i]
-        sum += pos.x + vel.dx + a.x + b.x + c.x
+    for j in eachindex(pos_iter)
+        ids = pos_iter[j][2]
+        position = pos_iter[j][1]
+        velocity = vel_iter[j][1]
+        A = A_iter[j][1]
+        B = B_iter[j][1]
+        C = C_iter[j][1]
+        @inbounds for i in ids
+            pos, vel, a, b, c = position[i], velocity[i], A[i], B[i], C[i]
+            sum += pos.x + vel.dx + a.x + b.x + c.x
+        end
     end
-
     return sum
 end
 
