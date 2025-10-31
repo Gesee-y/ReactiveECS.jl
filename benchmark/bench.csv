@@ -1,37 +1,31 @@
-benchmark_query_create            1000  451.98ns
-benchmark_query_posvel             100    1.08ns
-benchmark_query_posvel            1000    0.83ns
-benchmark_query_posvel           10000    1.38ns
-benchmark_query_posvel          100000    3.61ns
-benchmark_query_posvel         1000000    3.19ns
-benchmark_world_add_remove         100  378.95ns
-benchmark_world_add_remove        1000  101.84ns
-benchmark_world_add_remove       10000   78.95ns
-benchmark_world_add_remove      100000  133.93ns
-benchmark_world_add_remove_8       100  1397.37ns
-benchmark_world_add_remove_8     10000  182.29ns
-benchmark_world_get_1              100    1.76ns
-benchmark_world_get_1             1000    1.62ns
-benchmark_world_get_1            10000    2.53ns
-benchmark_world_get_1           100000    2.79ns
-benchmark_world_get_5              100   12.00ns
-benchmark_world_get_5             1000   12.43ns
-benchmark_world_get_5            10000   16.89ns
-benchmark_world_get_5           100000   16.16ns
-benchmark_world_new_entity_1       100  165.79ns
-benchmark_world_new_entity_1      1000   27.63ns
-benchmark_world_new_entity_1     10000   26.49ns
-benchmark_world_new_entity_1    100000   25.46ns
-benchmark_world_new_entity_5       100  718.42ns
-benchmark_world_new_entity_5      1000   93.16ns
-benchmark_world_new_entity_5     10000   27.63ns
-benchmark_world_new_entity_5    100000   27.75ns
-benchmark_world_posvel             100    7.00ns
-benchmark_world_posvel            1000    6.81ns
-benchmark_world_posvel           10000    8.29ns
-benchmark_world_posvel          100000    8.50ns
-benchmark_world_set_1              100    4.95ns
-benchmark_world_set_1            10000    6.08ns
-benchmark_world_set_5              100   28.51ns
-benchmark_world_set_5            10000   27.49ns
-[Finished in 38.3s]
+Name,N,Time
+benchmark_query_create,1000,463.818
+benchmark_query_posvel,100,6.178478260869565
+benchmark_query_posvel,1000,6.217250000000001
+benchmark_query_posvel,10000,6.4737
+benchmark_query_posvel,100000,7.434905
+benchmark_query_posvel,1000000,7.055952500000001
+benchmark_world_get_1,100,2.6199115044247794
+benchmark_world_get_1,1000,4.671166666666667
+benchmark_world_get_1,10000,10.658000000000001
+benchmark_world_get_1,100000,14.06059
+benchmark_world_get_5,100,11.386923076923075
+benchmark_world_get_5,1000,12.434500000000002
+benchmark_world_get_5,10000,17.1909
+benchmark_world_get_5,100000,15.075070000000002
+benchmark_world_new_entity_1,100,173.68
+benchmark_world_new_entity_1,1000,30.0
+benchmark_world_new_entity_1,10000,19.8948
+benchmark_world_new_entity_1,100000,24.98103
+benchmark_world_new_entity_5,100,730.27
+benchmark_world_new_entity_5,1000,94.343
+benchmark_world_new_entity_5,10000,27.5922
+benchmark_world_new_entity_5,100000,27.302095000000005
+benchmark_world_posvel,100,6.77913043478261
+benchmark_world_posvel,1000,6.513
+benchmark_world_posvel,10000,7.3816
+benchmark_world_posvel,100000,6.996745
+benchmark_world_set_1,100,6.128684210526315
+benchmark_world_set_1,10000,6.6711
+benchmark_world_set_5,100,29.474
+benchmark_world_set_5,10000,32.0133

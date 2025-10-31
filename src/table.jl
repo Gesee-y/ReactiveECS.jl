@@ -231,9 +231,9 @@ function setrowrange!(t::ArchTable, range::UnitRange{Int}, data)
 	    v = vals[j]
 	    vec = getdata(columns[k])
 
-	    id = vec.map[m]
+	    mask = vec.map[m]
+	    id, offs = mask >> 32, mask & FragmentArrays.OFFSET_MASK
 	    block = vec.data[id]
-	    offs = vec.offset[id]
 	    r = offset(range, offs)
 
 	    @threads for i in r
@@ -297,7 +297,7 @@ function fsetrowrange!(t::ArchTable, r::UnitRange{Int}, data)
 	    k = key[j]
 	    v = vals[j]
 	    vec = getfield(columns[k],:data)
-	    for i in r
+ 	    for i in r
 	    	vec[i] = _value(v, i)
 	    end
 	end
@@ -638,8 +638,8 @@ function swap_override!(arch::TableColumn{T},sw , i::UnitRange, j, s=1) where {T
 	col = getdata(arch)
     for x in s:length(i)
     	a, b, c = i[x], j[x][], sw[x]
-    	id = col.map[c]
-    	id2 = col.map[b]
+    	id = col.map[c] >> 32
+    	id2 = col.map[b] >> 32
     	!iszero(id2) && (col[a] = col[b])
     	!iszero(id) && (col[b] = col[c])
     end
