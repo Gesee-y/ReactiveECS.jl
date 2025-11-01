@@ -112,31 +112,13 @@ This allows for extreme flexibility, such as:
 
 Memory layout is critical in every ECS, as it directly impacts performance and memory consumption. It’s what separates a good ECS from a bad one.
 
-so long story short, RECS use a sparse set storage without sparse set.
+So long story short, ReactiveECS use a **Fragment vector** storage.
 
-It means that each component has his own dense table acting as columns, and entities are ids, where in each column, the same id = the same entity
-the set of column then form a table, kinda like in databases. 
+A fragment vector is like a sparse set, but wit a simple twist. I use multiple dense vector in the internals instead of a single one like in sparse set. see [this](https://github.com/Gesee-y/FragmentArrays.jl) for more informations.
+So RECS represent archetypes as ranges of entities which are represented internally in the fragment vector as a contiguous block of data.
+This organization is called **partitioning** where a set of ranges representing an archetype is called a **partition**.
 
-The table is **dense**, ensuring maximum performances when iterating on it.
-This layout, however, has a side effect: every entity has every component, even unused ones since it's the only way to maintain the consistency "same id = same entity" in every column without getting sparse.
-
-So let's look at your probable concerns: 
-
-- **How can we represent archetypes?**  
-  By using **partitions**. Continuous ranges within partitions represent entities that use the same set of components. By default a partition is about 4096 entities, once filled a new one is allocated. Archetypes here are symbolic — entities still technically have all components, but partitions let us group those exclusively in use. This mimic [Flecs](https://github.com/SanderMertens/flecs)'s archetypes table, ensuring memory locality and cache friendliness. It also makes operations simpler than in Archetype ECS, adding an entity is just writing a row, removing is just overriding a row, adding/removing a component is 2 override.
-
-- **Memory waste**  
-  This layout does consume more memory than archetype-based ECS. To mitigate this, RECS introduces **multiple tables**.  
-  Each table is specialized for a subset of components (e.g., an `ENEMY` table with enemy-specific components, a `BULLET` table, or a `PROPS` table). Queries then work by intersecting partitions across these tables, ensuring efficient memory use.
-Also memory behavior isn't as simple as it may seems. This [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/test/mem_overhead_test.jl) has been realized:
-
-| Entity count | Memory in use| Memory/entity |
-|--------------|--------------|---------------|
-|  255         |    4812 kb   |    ~18Kb      |
-|  25500       |    5134 kb   |    ~200b     |
-|  255000      |    17204 kb  |    ~69b      |
-
-Meaning a huge amount is allocated at first then is mostly just filled afterward.
+So when querying, we just search for matching partitions. 
 
 ---
 
@@ -147,79 +129,12 @@ This layout offers several advantages:
 - **Reduced memory movement**: Adding an entity just means writing a row. Removing one is a swap-remove. Adding or removing a component only changes the partition, not the data layout.
 - **Stable once peak memory is reached**: At that point the ECS endlessly reuse table slots and no more allocate or desallocate.
 - **No GC**: Since memory is constantly reused instead of freed,the GC is never triggered which means no stutter during intense gameplay.
-- **Less pointer chasing**: Compared to archetypal ECS designs, there are fewer tables, which reduces indirection and improves cache locality.
 - **Fused updates**: Since every system can accurately access any data, you can easily merge multiple system into one for an unified update.
 - **Fast iterations** : Iterating is at the same level as in archetype ECS
 - **Fast structural changes** : Adding/removing entites or components is at least 2× faster than in archetype-based ECS, see [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/benchmark/bench.csv)
-- **Blazing fast random component access": sub-ns random access, It’s as fast as indexing an array.
+- **Fast random component iterations": Efficient iterations over set of random entities (3ns per entity vs 1ns with contiguous entities).
 
-> This layout can be considered as a generalization of the common memory model (archetypes and sparse sets). By explicitly creating a table for each components combination, you make an archetype ECS. By adding an indexing layer above the tables, you make a sparse set ECS
-
----
-
-## Performances
-
-It’s a critical aspect of any ECS, and RECS doesn’t neglect it.  
-Its partitioned table offers performance comparable to an archetype-based ECS.  
-
-```csv
-Name,N,Time ns per entity
-benchmark_query_create,1000,459.2785
-benchmark_query_posvel,100,3.837777777777778
-benchmark_query_posvel,1000,3.7105333333333332
-benchmark_query_posvel,10000,3.908000000000001
-benchmark_query_posvel,100000,3.15001
-benchmark_query_posvel,1000000,3.4405435
-benchmark_query_posvel_optimized,100,1.4467233009708738
-benchmark_query_posvel_optimized,1000,1.2325510204081633
-benchmark_query_posvel_optimized,10000,1.5658
-benchmark_query_posvel_optimized,100000,2.4513300000000005
-benchmark_query_posvel_optimized,1000000,3.482188
-benchmark_world_add_remove,100,112.5
-benchmark_world_add_remove,1000,50.921
-benchmark_world_add_remove,10000,60.6319
-benchmark_world_add_remove,100000,133.58749500000002
-benchmark_world_add_remove_8,100,321.71
-benchmark_world_add_remove_8,10000,64.65825000000001
-benchmark_world_add_remove_8_large,100,1227.64
-benchmark_world_add_remove_8_large,10000,80.6451
-benchmark_world_add_remove_large,100,1109.21
-benchmark_world_add_remove_large,10000,91.02680000000001
-benchmark_world_get_1,100,0.7212592592592593
-benchmark_world_get_1,1000,0.6215106382978725
-benchmark_world_get_1,10000,0.6217250000000001
-benchmark_world_get_1,100000,1.05001
-benchmark_world_get_5,100,0.7248387096774194
-benchmark_world_get_5,1000,0.6264347826086957
-benchmark_world_get_5,10000,0.710525
-benchmark_world_get_5,100000,1.02237
-benchmark_world_new_entity_1,100,8.684
-benchmark_world_new_entity_1,1000,5.526
-benchmark_world_new_entity_1,10000,14.013300000000003
-benchmark_world_new_entity_1,100000,29.352775
-benchmark_world_new_entity_5,100,131.57666666666665
-benchmark_world_new_entity_5,1000,28.027
-benchmark_world_new_entity_5,10000,18.908
-benchmark_world_new_entity_5,100000,23.9863
-benchmark_world_posvel,100,1.5339378238341967
-benchmark_world_posvel,1000,1.5789473684210524
-benchmark_world_posvel,10000,3.2369
-benchmark_world_posvel,100000,3.4539650000000006
-benchmark_world_set_1,100,0.9672516556291392
-benchmark_world_set_1,10000,1.8552500000000003
-benchmark_world_set_5,100,6.693043478260871
-benchmark_world_set_5,10000,12.3948
-```
-
-> Quer_posvel = iterating a query for a pos+=vel update
-> add_remove = adding removing a component
-> add_remove_large = adding removing a component in a large population of components
-> world_posvel = updating a set of entity but using random access
-
-
-fragmentation  overhead with 10 randomized components across 25500 entities**: 15ns (see [benchmark](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/test/overhead_test.jl)
-
-> In contrast with traditional ECS whose avoids the worst case, RECS constantly run in it (max possible memory usage, max possible fragmentation, etc). This mean it would be hard to have worse than the performances obtained in the benchmarks
+> This layout can be considered as a clever mix of the common memory model (archetypes and sparse sets). Sparse because we can have gaps between blocks of data. Archetype because each block of data is tighly packed in memory and partitions act as archetypes.
 
 ---
 
@@ -345,11 +260,9 @@ Each time you write a log, a `Notifyer` named `ON_LOG` is triggered. This allows
 
 ## Limitations
 
-While RECS offers high performance and extreme flexibility, there are a few limitations to be aware of:
+While RECS offers high performance and extreme flexibility, there are a few limitations to be aware of: 
 
-- **Memory usage**: The database-like layout can consume more memory than archetype-based ECS designs, especially for large numbers of entities with many components.  
-
-- **Learning curve**: Concepts like reactive pipelines, partitions, and database like storage require some time to master, particularly for newcomers to ECS.  
+- **Learning curve**: Concepts like reactive pipelines, partitions, and fragment vectors require some time to master, particularly for newcomers to ECS.  
 
 - **Dispatch and synchronization overhead**: While generally minimal, the reactive pipeline introduces some overhead due to system dispatch and managing concurrency.  
 
