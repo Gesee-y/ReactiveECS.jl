@@ -23,13 +23,15 @@ function create_entity!(ecs::ECSManager, comp::NamedTuple; parent=ecs, size=DEFA
 	table = get_table(ecs)
 	key = keys(comp)
 	partitions = table.partitions
+	entities = table.entities
 
     # We get the bit representation of that set of components
 	signature = get_bits(table, key)
 	createpartition(table, signature, size)
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
-	entity = Entity(id, signature, WeakRef(ecs))
+	entity = isassigned(entities, id) ? entities[id] : Entity(id, signature, WeakRef(ecs))
+	entity.ID[] = id
 	setrow!(table, id, comp) # We then initialize the components
 
 	table.entities[id] = entity
@@ -40,13 +42,15 @@ function create_entity!(ecs::ECSManager, key::Tuple; parent=ecs, size=DEFAULT_PA
 	table = get_table(ecs)
 	key = to_symbol.(key)
 	partitions = table.partitions
+	entities = table.entities
 
     # We get the bit representation of that set of components
 	signature = get_bits(table, key)
 	createpartition(table, signature, size)
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
-	entity = Entity(id, signature, WeakRef(ecs))
+	entity = isassigned(entities, id) ? entities[id] : Entity(id, signature, WeakRef(ecs))
+	entity.ID[] = id
 	table.entities[id] = entity
 
 	return entity
@@ -126,6 +130,7 @@ function remove_entity!(ecs::ECSManager, e::Entity)
 	table = get_table(ecs)
 	override_remove!(table, e)
 	e.world = WeakRef()
+	e.alive = false
 end
 
 """

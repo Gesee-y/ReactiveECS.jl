@@ -13,6 +13,8 @@ function setup_world_new_entity_1(n::Int)
         remove_entity!(world, e)
     end
 
+    println(world)
+
     return world
 end
 

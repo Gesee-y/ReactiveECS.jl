@@ -74,7 +74,7 @@ Base.getindex(m::ArchetypeMap, key) = getindex(m, UInt128(key))
     end
     error("key not found")
 end
-
+Base.length(a::ArchetypeMap) = length(a.index)
 Base.setindex!(m::ArchetypeMap, v, key) = setindex!(m, v, UInt128(key))
 @inline function Base.setindex!(m::ArchetypeMap{V}, val::V, key::UInt128) where V
     i = (key * 11400714819323198485) & m.mask + 1

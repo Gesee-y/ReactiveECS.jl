@@ -636,8 +636,8 @@ function override!(arch::TableColumn{T}, i::UnitRange, j::Int) where T
 end
 function swap_override!(arch::TableColumn{T},sw , i::UnitRange, j, s=0) where {T}
 	col = getdata(arch)
-	
-	for x in eachindex(i)
+
+	@inbounds for x in eachindex(i)
     	a, b, c = i[x], j[x+s][], sw[x]
     	id = col.map[c]
     	id2 = col.map[b]
@@ -774,6 +774,17 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     	p -= count
     	f1 -= 1
     end
+
+    if p > 0
+    	size = max(DEFAULT_PARTITION_SIZE, p)
+        push!(old_zones, TableRange(t.row_count+1, t.row_count+p, size))
+        
+        append!(to_swap, t.row_count+1:(t.row_count+p))
+        for c in old_partition.components
+        	prealloc_range!(getdata(t.columns[c]), t.row_count+1:t.row_count + size)
+        end
+        resize!(t, t.row_count + size+1)
+    end
     old_partition.fill_pos = max(f1, 1)
 
     while m > 0 && f2 <= l2
@@ -807,19 +818,33 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     columns = t.columns
     
     s = 0
-    c = 1
-    for r in to_fill
-    	swap_override!(t, to_swap, r, mids, fields, s)
-    	s += length(r)
-        for i in r
-        	e = entities[c]
-        	id = mids[c]
+    cnt = 1
+    for k in eachindex(to_fill)
+    	r = to_fill[k]
+    	for x in eachindex(r)
+        	i, b, c = r[x], mids[x+s][], to_swap[x+s]
+	    	
+	    	for f in fields
+	    		col = getdata(columns[f])
+		    	id = col.map[c]
+		    	id2 = col.map[b]
+		    	
+		    	if !iszero(id2)  
+		    	    (col[i] = col[b])
+		    	end
+		    	if !iszero(id)  
+		    	    (col[b] = col[c])
+		    	end
+		    end
+        	e = entities[cnt]
+        	id = mids[cnt]
         	
             id[] = i
             t.entities[i] = e
             e.archetype = new_arch
-            c += 1
+            cnt += 1
         end
+        s += length(r)
     end
 end
 
