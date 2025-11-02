@@ -141,7 +141,9 @@ end
 
 #### **Internal Storage**
 
-Each components are stored in his own partitioned **fragment vector** layout. A fragmet vector is a data structure made during the process of maki g ReactiveECS.jl. It's like sparse set but represent a contiguous range of data as a fragment (chunk of a vector) and use an internal map (vector of UInt64) to know which fragment and with which offset each index have. 
+Each components are stored in his own partitioned **fragment vector** layout. A fragmet vector is a data structure made during the process of maki g ReactiveECS.jl. It's like sparse set but represent a contiguous range of data as a fragment (chunk of a vector) and use an internal map (vector of UInt64) to know which fragment and with which offset each index have.
+You can think of fragment vectors as a fusion of sparse sets and archetypes. A data structure that sparsely store chunk of data.
+
 When a new component is added, the internal map of his fragment vector resizes to match the size of others, ensuring consistent index mapping. This is usually done at component creation with `register_component!(world, type)`. 
 When an entity is added, It's added to a partition representing its archetype, and the index in that partition becomes the entity ID. Upon removal, the entity is swapped with the last entity of the partition and the partition shrink.
 
@@ -357,8 +359,7 @@ By default, the logs aren't directly written to a file. You should use `write!(i
 ## Advantages of RECS
 
 - **High Performance**: Cache efficency, vectorized updates, etc.
-- **Improved memory locality**: components stored in contiguous SoA layout with partitions to ensure data alignment.
-- **Stable performance**: one dispatch per tick, no redundant queries.
+- **Improved memory locality**: components stored in fragment vector layout with partitions to ensure data alignment.
 - **Reactive Design**: `listen_to` enables decoupled, dynamic system pipelines.
 - **Flexible Events**: Merge, one-shot, and prioritized events enhance reactivity.
 - **Scalability**: Efficient for 100k+ entities, with pooling and SoA.
@@ -370,12 +371,13 @@ By default, the logs aren't directly written to a file. You should use `write!(i
 
 - **Synchronization overhead**: There are some 10-50 μs due to synchronizing systems paid per frame
 - **Asynchronous Complexity**: Reactive pipelines can be harder to debug, though mitigated by profiling tools.
+- **Learning curve**: The ECS introduces multiple novel concepts which may be hard to learn at first.
 
 ---
 
 ## Conclusion
 
-RECS overcomes classical ECS limitations by offering **better scalability**, **good stability**, **a reactive architecture**, and improved readiness for **parallel or distributed processing**.
+RECS overcomes classical ECS limitations by offering **better scalability**, **good stability**, **a reactive architecture**, and readiness for **parallel or distributed processing**.
 This architecture is particularly suited for real-time simulation, 2D/3D games, and projects requiring dynamic reactivity without compromising performance.
 This model has been implemented for my experimental game engine in Julia. It combines ECS simplicity with targeted dispatch reactivity, without sacrificing performance.
 
