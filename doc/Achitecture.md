@@ -83,9 +83,7 @@ end
 function ReactiveECS.run!(world, sys::Physic, ref::WeakRef)
     query = ref.value
     transforms = get_component(world, :Transforms)  # Get all Position components
-    physics = get_component(world, :Physic)
-    x_pos = transforms.x
-    velocities = physics.velocity
+    physics = get_component(world, :Physic)
 
     dt = sys.dt
 
@@ -143,9 +141,13 @@ end
 
 #### **Internal Storage**
 
-Components are stored in a partitioned **fragment vector** layout. A fragmet vector is a data structure made during the process of maki g ReactiveECS.jl. It's like sparse set but represent a contiguous range of data as a fragment (chunk of a vector). When a new component is added, its SoA resizes to match the size of others, ensuring consistent index mapping. This is usually done at the component creation with `register_component!(world, type)`. When an entity is added, It's added to a partition representing its archetype, and the index in that partition becomes the entity ID. Upon removal, the entity is swapped with the last entity of the partition and the partition shrink.
+Each components are stored in his own partitioned **fragment vector** layout. A fragmet vector is a data structure made during the process of maki g ReactiveECS.jl. It's like sparse set but represent a contiguous range of data as a fragment (chunk of a vector) and use an internal map (vector of UInt64) to know which fragment and with which offset each index have. 
+When a new component is added, the internal map of his fragment vector resizes to match the size of others, ensuring consistent index mapping. This is usually done at component creation with `register_component!(world, type)`. 
+When an entity is added, It's added to a partition representing its archetype, and the index in that partition becomes the entity ID. Upon removal, the entity is swapped with the last entity of the partition and the partition shrink.
 
 Unused slots remain undefined but reserved — enabling **fast pooling** and simple memory reuse.
+
+This layout allows fast iterations du to partitioning but also decently fast structural changes do to the sparse nature of fragment vectors.
 
 ```
         INTERNAL STORAGE
@@ -193,7 +195,7 @@ The `ECSManager` acts as the central coordinator. It holds all components using 
 
 A  `Query` is a struct containing the matching partitions for that system. Each partition contain the range of the matching entities and these range can easily be accessed with `@foreachrange`
 
-This design eliminates the need for explicitly optional components — systems technically have access to all registered components due to the sparse nature of the data's storage — but only the relevant subset is prefiltered and passed to them for iteration.
+This design eliminates the need for explicitly optional components, systems technically have access to all registered components due to the sparse nature of the data's storage, but only the relevant subset is prefiltered and passed to them for iteration.
 
 ### Subscription Logic
 
