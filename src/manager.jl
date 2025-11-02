@@ -84,7 +84,7 @@ mutable struct ECSManager
 	entities::Vector{Optional{Entity}}
 	tables::Dict{Symbol,ArchTable} # Contain all the data
 	main::Symbol
-    components_ids::Dict{Symbol, Int}
+    components_ids::Dict{Symbol, UInt128}
     bitpos::Int
     root::Vector{Int}
 	queries::Dict{AbstractSystem, Query}
@@ -96,7 +96,7 @@ mutable struct ECSManager
 	## Constructor
 
 	ECSManager() = new(Vector{Optional{Entity}}(), Dict{Symbol,ArchTable}(:main => ArchTable()), :main, 
-        Dict{Symbol, Int}(), 1, Int[], Dict{AbstractSystem, Query}(), LogTracer(), Atomic{Int}(0), Atomic{Int}(0), 
+        Dict{Symbol, UInt128}(), 1, Int[], Dict{AbstractSystem, Query}(), LogTracer(), Atomic{Int}(0), Atomic{Int}(0), 
         Condition())
     ECSManager(args...) = begin
         ecs = ECSManager()

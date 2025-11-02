@@ -19,7 +19,7 @@ end
 function benchmark_world_get_5(args, n)
     pos_iter, vel_iter, A_iter, B_iter, C_iter = args
     sum = 0.0
-    for j in eachindex(pos_iter)
+    @inbounds for j in eachindex(pos_iter)
         ids = pos_iter[j][2]
         position = pos_iter[j][1]
         velocity = vel_iter[j][1]

@@ -12,16 +12,22 @@ function setup_world_posvel(n_entities::Int)
         push!(entities, create_entity!(world, (; Position=Position(i, i*2), Velocity=Velocity(1,1))))
     end
 
-    return (getindex.(get_id.(entities)), pos, vel)
+    ids = getindex.(get_id.(entities))
+
+    return (get_iterator(getdata(pos), ids), get_iterator(getdata(vel), ids))
 end
 
 function benchmark_world_posvel(args, n)
-    ids, positions, velocities = args
-
-    @inbounds for i in ids
-        pos = positions[i]
-        vel = velocities[i]
-        positions[i] = Position(pos.x+vel.dx, pos.y+vel.dy)
+    positions, velocities = args
+    
+    for i in eachindex(positions)
+        pblock, ids = positions[i]
+        vblock = velocities[i][1]
+        for j in ids
+            pos = pblock[j]
+            vel = vblock[j]
+            pblock[j] = Position(pos.x+vel.dx, pos.y+vel.dy)
+        end
     end
 end
 

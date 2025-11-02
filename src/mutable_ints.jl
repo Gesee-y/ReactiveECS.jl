@@ -46,8 +46,8 @@ Base.setindex!(n::MInt, v::Integer) = setfield!(n, :value, v)
 Base.isequal(n1::MInt, n2::MInt) = n1[] == n2[]
 Base.isless(n1::MInt, n2::MInt) = n1[] < n2[]
 Base.flipsign(n1::MInt, n2::MInt) = MInt(flipsign(n1[], n2[]))
-Base.show(io::IO,n::MInt) = show(io, "$(typeof(n))$(n[])")
-Base.show(n::ReactiveECS.MInt) = show(stdout, "$(typeof(n))$(n[])")
+Base.show(io::IO,n::MInt) = show(io, n[])
+Base.show(n::ReactiveECS.MInt) = show(stdout, n[])
 Base.print(io,n::MInt) = print(io, n[])
 Base.print(n::MInt) = print(n[])
 Base.println(io,n::MInt) = println(io, n[])

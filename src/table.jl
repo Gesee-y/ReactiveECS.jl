@@ -327,7 +327,7 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=DEFAUL
         resize!(t, t.row_count+n+1)
 
         for c in comps
-        	prealloc_range(getdata(columns[c]), range)
+        	prealloc_range!(getdata(columns[c]), range)
         end
 
         t.entity_count += n
@@ -380,7 +380,7 @@ function allocate_entity(t::ArchTable, n::Int, archetype::Integer; offset=DEFAUL
 		resize!(t, nsize+1) # Finally we just resize our table
 
 		for c in comps
-        	prealloc_range(getdata(columns[c]), range)
+        	prealloc_range!(getdata(columns[c]), range)
         end
 	end
 
@@ -405,7 +405,7 @@ function createpartition(t::ArchTable, archetype::Integer, size=DEFAULT_PARTITIO
     	partitions[archetype] = partition
 
     	for c in comps
-        	prealloc_range(getdata(columns[c]), t.row_count+1:t.row_count+size)
+        	prealloc_range!(getdata(columns[c]), t.row_count+1:t.row_count+size)
         end
 
     	resize!(t, t.row_count+size+1)
@@ -443,7 +443,7 @@ function addtopartition(t::ArchTable, archetype::Integer, size=DEFAULT_PARTITION
     		push!(zones, TableRange(id,id,size))
     		resize!(t, id+size)
     		for c in comps
-        	    prealloc_range(getdata(columns[c]), id:id+size)
+        	    prealloc_range!(getdata(columns[c]), id:id+size)
             end
     	end
     	partition.fill_pos += 1
@@ -598,9 +598,9 @@ function swap!(cols::TableColumn{T}, i::Int, j::Int) where T
 	arch = getdata(cols)
 	arch[i], arch[j] = arch[j], arch[i]
 end
-@generated function override!(arch::TableColumn{T}, i::UnitRange, j, s=1) where T
+function override!(arch::TableColumn{T}, i::UnitRange, j, s=1) where T
     data = getdata(arch)
-    @inbounds for x in s:length(i)
+    for x in s:length(i)
         data[i[x]] =  data[j[x]]
     end
 end
@@ -634,14 +634,19 @@ function override!(arch::TableColumn{T}, i::UnitRange, j::Int) where T
         data[x] = data[j]
     end
 end
-function swap_override!(arch::TableColumn{T},sw , i::UnitRange, j, s=1) where {T}
+function swap_override!(arch::TableColumn{T},sw , i::UnitRange, j, s=0) where {T}
 	col = getdata(arch)
-    for x in s:length(i)
-    	a, b, c = i[x], j[x][], sw[x]
-    	id = col.map[c] >> 32
-    	id2 = col.map[b] >> 32
-    	!iszero(id2) && (col[a] = col[b])
-    	!iszero(id) && (col[b] = col[c])
+	
+	for x in eachindex(i)
+    	a, b, c = i[x], j[x+s][], sw[x]
+    	id = col.map[c]
+    	id2 = col.map[b]
+    	if !iszero(id2)  
+    	    (col[a] = col[b])
+    	end
+    	if !iszero(id)  
+    	    (col[b] = col[c])
+    	end
     end
 end
 
@@ -666,17 +671,25 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
     f1 = old_partition.fill_pos
     f2 = new_partition.fill_pos
 
-    old_zone = old_partition.zones[end]
+    old_zone = old_partition.zones[f1]
     new_zone = new_partition.zones[f2]
 
     i = get_id(e)[]
 
     # Remove from old zone (get last valid entity)
+
+    if isempty(old_zone)
+    	old_zone = old_partition.zones[f1-1]
+    	old_partition.fill_pos -= 1
+    end
+
     j = old_zone.e
     old_zone.e -= 1
 
+    new_id = new_zone.e +1
+
     # Allocate slot in new zone
-    if new_zone.e-new_zone.s+1 == new_zone.size
+    if isfull(new_zone)
         # Extend partition with new zone
         if f2 < length(new_partition.zones)
         	nz = new_partition.zones[f2+1]
@@ -685,7 +698,7 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
         else
             push!(new_partition.zones, TableRange(t.row_count+1, t.row_count+1, DEFAULT_PARTITION_SIZE))
             for c in fields
-        	    prealloc_range(getdata(t.columns[c]), t.row_count+1:t.row_count + DEFAULT_PARTITION_SIZE)
+        	    prealloc_range!(getdata(t.columns[c]), t.row_count+1:t.row_count + DEFAULT_PARTITION_SIZE)
             end
             new_id = t.row_count+1
 
@@ -694,30 +707,35 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
         end
         new_partition.fill_pos += 1
     else
-        new_id = new_zone.e + 1
         new_zone.e += 1
     end
 
     e.ID[] = new_id
+    #println(new_zone)
+    #println(new_id)
     entities[new_id] = e
 
     # Swap structs directly
     begin
         for f in fields
             col = t.columns[f]
-            override!(col, new_id, i)
-            override!(col, i, j)
+            d = getdata(col)
+
+            iszero(d.map[i]) || override!(col, new_id, i)
+            iszero(d.map[j]) || override!(col, i, j)
         end
     end
 
     # Finalize old slot
     if i != j
-        if !isdefined(entities, j)
+        if !isassigned(entities, j)
 	        entities[j] = Entity(j, old_arch, e.world)
+	        println("in")
         end
 	    
         entities[i] = entities[j]
-        entities[j].ID[] = i
+        entities[j] = Entity(j, old_arch, e.world)
+        entities[i].ID[] = i
     end
 end
 function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new_arch, new=true)
@@ -751,24 +769,26 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     while p > 0 && f1 > 0
     	zone = old_zones[f1]
     	count = zone.e - zone.s + 1
-    	p -= count
     	append!(to_swap, get_range(zone))
     	zone.e -= min(count, p)
+    	p -= count
     	f1 -= 1
     end
     old_partition.fill_pos = max(f1, 1)
 
     while m > 0 && f2 <= l2
+    	
     	zone = new_zones[f2]
+    	size = min(m, zone.size)
 
-    	endval = zone.s + min(m,zone.size) - 1
+    	endval = zone.s + size - 1
     	r = zone.e+1:endval
     	
     	m -= length(r)
     	push!(to_fill, r)
-    	zone.e = endval
 
-    	f2 += 1
+        zone.e = endval
+        f2 += 1
     end
 
     if m > 0
@@ -778,7 +798,7 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
         
         push!(to_fill, t.row_count+1:(t.row_count+m))
         for c in fields
-        	prealloc_range(getdata(t.columns[c]), t.row_count+1:t.row_count + size)
+        	prealloc_range!(getdata(t.columns[c]), t.row_count+1:t.row_count + size)
         end
         resize!(t, t.row_count + size+1)
     end
@@ -786,14 +806,11 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     new_partition.fill_pos = min(f2, l2)
     columns = t.columns
     
-    s = 1
+    s = 0
+    c = 1
     for r in to_fill
     	swap_override!(t, to_swap, r, mids, fields, s)
     	s += length(r)
-    end
-
-    c = 1
-    @inbounds for r in to_fill
         for i in r
         	e = entities[c]
         	id = mids[c]
@@ -828,9 +845,10 @@ end
 
 get_range(t::TableRange, offset=0)::UnitRange{Int64} = t.s-offset:t.e-offset
 
-function get_components_list(t::ArchTable, archetype::Integer)
+function get_components_list(t::ArchTable, value::Integer)
 	res = Symbol[]
-    
+	archetype::UInt128 = value
+	
     while archetype != 0
     	bit = archetype & (~archetype + 1)
     	push!(res, Symbol(t.idmap[bit]))
@@ -850,6 +868,7 @@ Base.in(t::TableRange, i::Int) = t.s <= i <= t.e
 Base.in(t::TableRange, e::Entity) = get_id(e)[] in t
 isfull(t::TableRange) = length(t) == t.size
 hasonlyoneelt(t::TableRange) = length(t) == 1
+Base.isempty(t::TableRange) = length(t) < 1
 #################################################### Helpers ###########################################################
 
 _value(x::Any, i::Int) = x

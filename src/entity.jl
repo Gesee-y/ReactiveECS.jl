@@ -44,6 +44,9 @@ end
 
 ##################################################### Operations ########################################################
 
+Base.show(io::IO, e::Entity) = print(io, "Entity(id=$(e.ID[]), alive=$(e.alive))")
+Base.show(e::Entity) = show(stdout, e)
+
 #=function Base.getproperty(e::Entity, s::Symbol)
     s in getfield(e, :components) || return getfield(e, s)
     column = get_component(getfield(e, :world).value, s)
