@@ -731,7 +731,6 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
     if i != j
         if !isassigned(entities, j)
 	        entities[j] = Entity(j, old_arch, e.world)
-	        println("in")
         end
 	    
         entities[i] = entities[j]
