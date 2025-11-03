@@ -1,4 +1,4 @@
-# ReactiveECS.jl v2: Reconciling Performance and Flexibility 
+# ReactiveECS.jl v3: Reconciling Performance and Flexibility 
 
 A high-performance, modular, event-driven and fragment-vector based ECS (Entity-Component-System) architecture written in Julia. Designed for game engines, simulations, or any data-oriented architecture needing maximum performances with extreme flexibility.
 
