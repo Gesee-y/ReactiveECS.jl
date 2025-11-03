@@ -800,113 +800,38 @@ end
 
 # TODO: REFACTOR ALL THIS 
 # Move data for a single column (component) from a sequence of src ranges to a sequence of dst ranges.
-# src_ranges and dst_ranges are Arrays of UnitRange{Int} with the same total length.
-function move_ranges_between_columns!(col, src_ranges::Vector{UnitRange{Int}}, dst_ranges::Vector{UnitRange{Int}})
-    # Cache map & data ref
-    cmap = col.map
-    data_blocks = col.data
+# src and dst are Arrays of UnitRange{Int} with the same total length.
+@generated function swapmove_entities(cols, ids,fillv::Vector{Int}, swapv::Vector{Int})
+	expr = Expr(:block)
+	args = expr.args
 
-    si = 1  # index into src_ranges
-    di = 1  # index into dst_ranges
-    spos = first(src_ranges[1])
-    dpos = first(dst_ranges[1])
+	push!(args, :(iter = get_iterator(cols, ids)))
+	params = Expr(:Tuple, :ids)
+	bsyms = Symbol[]
+	body = quote end
 
-    src_off_in_range = 0
-    dst_off_in_range = 0
+	for i in 1:N
+		push!(bsymb, gensym())
+	end
 
-    # total remaining length in current src/dst
-    src_rem = last(src_ranges[1]) - spos + 1
-    dst_rem = last(dst_ranges[1]) - dpos + 1
+	append!(params.args, bsyms)
 
-    while si <= length(src_ranges) && di <= length(dst_ranges)
-        len = min(src_rem, dst_rem)
+	for s in bsyms
+		push!(body.args, quote
+			$s[j] = $s[id]
+			$s[id] = $s[k]
+	    end)
+	end
 
-        # We need to copy len elements starting from global indices spos .. spos+len-1 to dpos .. dpos+len-1
-        # Use the fragment mapping to copy in chunks where underlying blocks are contiguous.
-
-        # We'll walk the src and dst simultaneously but at block granularity:
-        sidx = spos
-        didx = dpos
-        tocopy = len
-
-        while tocopy > 0
-            # decode src mask
-            sm = cmap[sidx]
-            @inbounds if sm == 0
-                # slot empty, skip writing (or set default?) Here we copy nothing for empty slots.
-                # We'll still increment indices.
-                sidx += 1
-                didx += 1
-                tocopy -= 1
-                continue
-            end
-            sblock, sstart = decode_mask(sm)
-            slocal = sidx - sstart   # local index in block (1-based assumption)
-            sblockvec = data_blocks[sblock]
-            slen_block = length(sblockvec) - slocal + 1
-
-            # decode dst mask (dst may be empty yet -- but we assume prealloc_range handled)
-            dm = cmap[didx]   # careful: here dst column map is different; we'll call function per column with proper cmap
-            # NOTE: this helper assumes col parameter is the SOURCE column; we will call it for both directions accordingly.
-            # For generic safety we require dst mapping accessible — easier approach: this helper copies source values to a temporary buffer, then writes to dest using dest's block mapping.
-            # Simpler: fetch source contiguous slice up to block boundary, stash in tmp and write to dest using dest mapping in block chunks.
-            # Implement tmp buffer approach below.
-
-            # compute amount available contiguously in source
-            scont = slen_block
-            take = min(scont, tocopy)
-
-            # copy source slice into tmp
-            @inbounds begin
-                tmp = @view(sblockvec[slocal:slocal+take-1])
-                # Now write tmp into dest positions (may cross dest blocks)
-                # We'll write sequentially into dest global positions: didx .. didx+take-1
-                tpos = 1
-                remain_write = take
-                while remain_write > 0
-                    dm = cmap[didx]
-                    iszero(dm) && break
-                    dblock, dstart = decode_mask(dm)
-                    dlocal = didx - dstart
-                    dblockvec = data_blocks[dblock]
-                    dcont = length(dblockvec) - dlocal + 1
-                    w = min(dcont, remain_write)
-                    
-                    @inbounds dblockvec[dlocal:dlocal+w-1] .= tmp[tpos:tpos+w-1]
-                    didx += w
-                    tpos += w
-                    remain_write -= w
-                end
-            end
-
-            # advance
-            sidx += take
-            tocopy -= take
-        end
-
-        # advance src_ranges/dst_ranges pointers
-        # decrement src_rem / dst_rem and advance indices
-        src_rem -= len
-        dst_rem -= len
-        if src_rem == 0
-            si += 1
-            if si <= length(src_ranges)
-                spos = first(src_ranges[si])
-                src_rem = last(src_ranges[si]) - spos + 1
-            end
-        else
-            spos += len
-        end
-        if dst_rem == 0
-            di += 1
-            if di <= length(dst_ranges)
-                dpos = first(dst_ranges[di])
-                dst_rem = last(dst_ranges[di]) - dpos + 1
-            end
-        else
-            dpos += len
-        end
-    end
+	push!(args, quote 
+		@inbounds for $params in iter
+			for i in ids
+				id = IDs[i]
+				j,k = fillv[i], swapv[i]
+			    $body
+			end
+		end
+    end)
 end
 
 # High-level change_archetype!, optimized:
@@ -921,10 +846,13 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     new_zones = new_partition.zones
 
     fields = new ? new_partition.components : old_partition.components
+    fix = Base.Fix1(getindex, t.columns)
+    cols = fix.(fields)
+    mids = get_id.(entities)
 
-    # Build lists of src_ranges (to_swap) and dst_ranges (to_fill) as UnitRange lists
-    to_swap_ranges = UnitRange{Int}[]
-    to_fill_ranges = UnitRange{Int}[]
+    # Build lists of src (to_swap) and dst (to_fill) as UnitRange lists
+    to_swap = Int[]
+    to_fill = Int[]
 
     # --- build to_swap (consume from old_partition back-to-front) ---
     p = length(entities)
@@ -936,7 +864,7 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
         # take last `take` elements from this zone
         start = zone.e - take + 1
         stop = zone.e
-        push!(to_swap_ranges, start:stop)
+        append!(to_swap_ranges, start:stop)
         zone.e -= take
         p -= take
         f1 -= 1
@@ -944,7 +872,7 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     if p > 0
         size = max(DEFAULT_PARTITION_SIZE, p)
         push!(old_zones, TableRange(t.row_count+1, t.row_count+p, size))
-        push!(to_swap_ranges, t.row_count+1:t.row_count+p)
+        append!(to_swap_ranges, t.row_count+1:t.row_count+p)
         for c in old_partition.components
             prealloc_range!(getdata(t.columns[c]), t.row_count+1:t.row_count + size)
         end
@@ -962,7 +890,7 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
         if size > 0
             start = zone.e + 1
             stop = zone.e + size
-            push!(to_fill_ranges, start:stop)
+            append!(to_fill_ranges, start:stop)
             zone.e = stop
             m -= size
         end
@@ -971,7 +899,7 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     if m > 0
         size = max(DEFAULT_PARTITION_SIZE, m)
         push!(new_zones, TableRange(t.row_count+1, t.row_count+m, size))
-        push!(to_fill_ranges, t.row_count+1:t.row_count+m)
+        append!(to_fill, t.row_count+1:t.row_count+m)
         for c in fields
             prealloc_range!(getdata(t.columns[c]), t.row_count+1:t.row_count + size)
         end
@@ -979,60 +907,25 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, old_arch, new
     end
     new_partition.fill_pos = min(f2, l2)
 
-    # Now we have to_swap_ranges and to_fill_ranges (same total length = n)
+    # Now we have to_swap and to_fill (same total length = n)
     # Sanity: total lengths equal
-    #total_swap = sum(length(r) for r in to_swap_ranges)
-    #total_fill = sum(length(r) for r in to_fill_ranges)
+    #total_swap = sum(length(r) for r in to_swap)
+    #total_fill = sum(length(r) for r in to_fill)
     #@assert total_swap == total_fill == length(entities)
 
     # For each component field, move blocks between columns
-    for f in fields
-        col = getdata(t.columns[f])
-        # move values from src ranges to dst ranges
-        move_ranges_between_columns!(col, to_swap_ranges, to_fill_ranges)
-    end
+    swapmove_entities!(cols, getindex.(mids), to_fill, to_swap)
 
-    # Update entity ids and table entities in bulk
-    # We'll iterate over ranges pairwise and set ids/entities
-    cnt = 1
-    si = 1
-    di = 1
-    spos = first(to_swap_ranges[si])
-    dpos = first(to_fill_ranges[di])
-    srem = last(to_swap_ranges[si]) - spos + 1
-    drem = last(to_fill_ranges[di]) - dpos + 1
-
-    while cnt <= length(entities)
-        take = min(srem, drem)
-        # copy ids and entities blockwise
-        @inbounds for k in 0:take-1
-            cidx = spos + k
-            didx = dpos + k
-            e = entities[cnt]
-            idref = get_id(e)
-            idref[] = didx
-            t.entities[didx] = e
-            e.archetype = new_arch
-            cnt += 1
-        end
-        spos += take
-        dpos += take
-        srem -= take
-        drem -= take
-        if srem == 0
-            si += 1
-            if si <= length(to_swap_ranges)
-                spos = first(to_swap_ranges[si])
-                srem = last(to_swap_ranges[si]) - spos + 1
-            end
-        end
-        if drem == 0
-            di += 1
-            if di <= length(to_fill_ranges)
-                dpos = first(to_fill_ranges[di])
-                drem = last(to_fill_ranges[di]) - dpos + 1
-            end
-        end
+    @inbounds for i in eachindex(to_fill)
+    	j = to_fill[i]
+    	k = to_swap[i]
+    	e = entities[i]
+    	id = mids[i]
+    	
+        id[] = j
+        t.entities[id[]] = t.entities[k]
+        t.entities[j] = e
+        e.archetype = new_arch
     end
 end
 
