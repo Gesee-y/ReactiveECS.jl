@@ -221,7 +221,62 @@ end
 
 This set a given range of a table with the given `data` which is a dictionnary or a named tuple.
 """
-function setrowrange!(t::ArchTable, range::UnitRange{Int}, data)
+@generated function setrowrange!(t::ArchTable, range::UnitRange{Int}, data)
+	expr = Expr(:block)
+	keys, types = data.parameters
+	isempty(keys) && return
+
+	args = expr.args
+	push!(args,  :(m=range[begin]))
+	
+	k1 = keys[1]
+	keysymbs = Symbol[]
+	bsymb = Symbol[]
+	body = quote end
+
+	for key in keys
+		k = QuoteNode(key)
+		ky = gensym()
+		push!(args, :($ky = getdata(t.columns[$k])))
+		push!(keysymbs, ky)
+	end
+
+	k1 = keysymbs[1]
+	offs = gensym()
+
+	for i in eachindex(keysymbs)
+		ky = keysymbs[i]
+		T = keys[i]
+		m = gensym()
+		id = gensym()
+		blk = gensym()
+	    push!(args, quote 
+	    	$m = $ky.map[range[begin]]
+	    	$id, $offs = FragmentArrays.decode_mask($m)
+
+	    	$blk::Vector{$T} = $ky.data[$id]
+	    end)
+
+	    push!(bsymb, blk)
+	end
+
+	push!(args, :(r = offset(range, $offs)))
+
+	for i in eachindex(bsymb)
+		b = bsymb[i]
+		k = keys[i]
+		push!(body.args, :($b[i] = data.$k))
+	end
+
+	push!(args, quote
+		@inbounds for i in r
+			$body
+		end
+	end)
+
+	return expr
+end 
+function psetrowrange!(t::ArchTable, range::UnitRange{Int}, data)
 	columns::Dict{Symbol, TableColumn} = t.columns
 	key = keys(data)
 	vals = values(data)
@@ -250,7 +305,7 @@ function setrowrange!(t::TableColumn, vec, c)
 	end
 end
 function setrowrange!(idx, columns, v)
-	for x in idx
+	@inbounds for x in idx
 		i = x[]
 		for j in eachindex(v)
 			col = getdata(columns[j])
@@ -281,9 +336,9 @@ end
     end
 	
     push!(swaps, quote
-    	for x in idx
+    	@inbounds for x in idx
     		i = x[]
-    	    @inbounds $body
+    	    $body
     	end
     end)
 
