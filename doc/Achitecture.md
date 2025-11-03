@@ -39,8 +39,8 @@ A **sparse set ECS** is an approach where every type of component has his own **
 **Reactive ECS (RECS)** is a high-performance ECS framework built in Julia, designed to combine the efficiency of data-oriented design with the flexibility of reactive programming. At its core, RECS uses a centralized **ECSManager** that stores entities in a columnar way (entities are rows, components are columns), represent archetypes with **partitions**, use query to get the relevant partitions and dispatches them to subscribed systems.
 
 ### Core Principles
-- **Structured Storage**: Entities are stored in a partitioned cache-friendly layout.
-- **Targeted Dispatch**: Systems receive only the data they need, minimizing overhead.
+
+- **Structured Storage**: Entities are stored in a partitioned cache-friendly layout.
 - **Reactive Processing**: Systems communicate via data pipelines, using `listen_to` for loose coupling.
 - **Entity Pooling**: Reuses memory slots for fast entity creation/deletion.
 
