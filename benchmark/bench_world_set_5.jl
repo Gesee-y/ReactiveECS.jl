@@ -13,12 +13,12 @@ function setup_world_set_5(n_entities::Int)
          CompC=CompC(0, 0))))
     end
 
-    return (getindex.(get_id.(entities)), pos, vel, A, B, C)
+    return (get_id.(entities), pos, vel, A, B, C)
 end
 
 function benchmark_world_set_5(args, n)
     ids, pos, vel, A, B, C = args
-    for i in ids
+    @inbounds for i in ids
         pos[i] = Position(1, 2)
         vel[i] = Velocity(0, 0)
         A[i] = CompA(0, 0)

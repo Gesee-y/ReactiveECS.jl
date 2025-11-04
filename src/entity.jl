@@ -22,7 +22,7 @@ This struct represent an entity for the ECS. An entity is just an `ID`, which is
 `world` is a weak reference to the manager object.
 """
 mutable struct Entity
-	ID::MInt{Int64}
+	ID::Int64
     alive::Bool
     parentID::MInt64
 	archetype::UInt128
@@ -31,7 +31,7 @@ mutable struct Entity
 
     ## Constructors
 
-    Entity(id::Int, archetype::Integer, ref; parentID=MInt64(-1)) = new(MInt64(id), true, parentID, 
+    Entity(id::Int, archetype::Integer, ref; parentID=MInt64(-1)) = new(id, true, parentID, 
         archetype, ref, MInt64[])
 
     Entity(e::Entity; parentID=MInt64(-1)) = new(get_id(e), true, parentID, e.archetype, e.world, MInt64[])
@@ -46,6 +46,8 @@ end
 
 Base.show(io::IO, e::Entity) = print(io, "Entity(id=$(e.ID[]), alive=$(e.alive))")
 Base.show(e::Entity) = show(stdout, e)
+setid!(e::Entity, id::Int) = setfield!(e, :ID, id)
+setarchetype!(e::Entity, arch) = setfield!(e, :archetype, arch)
 
 #=function Base.getproperty(e::Entity, s::Symbol)
     s in getfield(e, :components) || return getfield(e, s)
@@ -152,7 +154,7 @@ NodeTree.get_children(e::Entity) = getfield(e, :children)
 Return the index of the entity in the list of entities.
 Behave exactly as `get_id`.
 """
-NodeTree.get_nodeidx(e::Entity) = get_id(e)[]
+NodeTree.get_nodeidx(e::Entity) = get_id(e)
 
 """
     print_tree(io::IO,n::Entity;decal=0,mid=1,charset=get_charset())

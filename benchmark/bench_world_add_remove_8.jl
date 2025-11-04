@@ -29,6 +29,6 @@ function benchmark_world_add_remove_8(args, n)
             :Comp6, :Comp7, :Comp8)
 end
 
-for n in (100, 10_000)
+for n in (100, 10_000, 100_000)
     SUITE["benchmark_world_add_remove_8 n=$n"] = @be setup_world_add_remove_8($n) benchmark_world_add_remove_8(_, $n) seconds = SECONDS
 end

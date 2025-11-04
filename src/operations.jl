@@ -31,7 +31,7 @@ function create_entity!(ecs::ECSManager, comp::NamedTuple; parent=ecs, size=DEFA
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
 	entity = isassigned(entities, id) ? entities[id] : Entity(id, signature, WeakRef(ecs))
-	entity.ID[] = id
+	entity.ID = id
 	setrow!(table, id, comp) # We then initialize the components
 
 	table.entities[id] = entity
@@ -50,7 +50,7 @@ function create_entity!(ecs::ECSManager, key::Tuple; parent=ecs, size=DEFAULT_PA
 	id = addtopartition(table, signature) # We add the entity to the correct partition
 
 	entity = isassigned(entities, id) ? entities[id] : Entity(id, signature, WeakRef(ecs))
-	entity.ID[] = id
+	entity.ID = id
 	table.entities[id] = entity
 
 	return entity
@@ -143,8 +143,8 @@ function attach_component(ecs::ECSManager, e::Entity, c::AbstractComponent)
 		table = get_table(ecs)
 		old_signature = e.archetype
 		signature = old_signature | bit
-		change_archetype!(table, e, old_signature, signature)
-		table.columns[symb][get_id(e)[]] = c
+		change_archetype!(table, e, old_signature, signature, false)
+		table.columns[symb][get_id(e)] = c
 		e.archetype = signature
 	end
 end
@@ -155,9 +155,9 @@ function attach_component(ecs::ECSManager, e::Entity, c::AbstractComponent...)
 	if (e.archetype & bit < bit)
 		old_signature = e.archetype
 		signature = old_signature | bit
-		change_archetype!(table, e, old_signature, signature)
+		change_archetype!(table, e, old_signature, signature, false)
 		
-		i = get_id(e)[]
+		i = get_id(e)
 		columns = table.columns
 		@inbounds for j in eachindex(symb)
 		    columns[symb[j]][i] = c[j]
@@ -165,22 +165,23 @@ function attach_component(ecs::ECSManager, e::Entity, c::AbstractComponent...)
 		e.archetype = signature
 	end
 end
-function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComponent)
+#=function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComponent)
 	isempty(ents) && return
 	
 	e = ents[1]
 	symb = to_symbol(c)
 	bit::UInt128 = one(UInt128) << ecs.components_ids[symb]
+	mids = get_id.(ents)
 	if iszero(e.archetype & bit)
 		table = get_table(ecs)
 		old_signature = e.archetype
 		signature = old_signature | bit
-		change_archetype!(table, ents, old_signature, signature)
+		change_archetype!(table, ents, mids, old_signature, signature)
 		col = table.columns[symb] 
 
-		setrowrange!(col, get_id.(ents), c)
+		setrowrange!(col, mids, c)
 	end
-end
+end=#
 function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComponent...)
 	isempty(ents) && return
 	
@@ -189,25 +190,31 @@ function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComp
 	table = get_table(ecs)
 	old_signature = e.archetype
 	bit::UInt128 = get_bits(table, symb)
+	mids = get_id.(ents)
 	if old_signature & bit < bit
 		signature = old_signature | bit
-		change_archetype!(table, ents, old_signature, signature, false)
-		
 		fix = Base.Fix1(getindex, table.columns)
-		columns = fix.(symb)
-		setrowrange!(get_id.(ents), columns, c, Val(length(symb)))
+		columns = getdata.(fix.(symb))
+		change_archetype!(table, ents, mids, columns, old_signature, signature, false; other=symb)
+
+		#=@time iter = get_iterator(columns, ids)
+
+		for datas in iter
+			ids = datas[end]
+			blocks = datas[begin:end-1]
+			for j in eachindex(blocks)
+				block = blocks[j]
+				comp = c[j]
+				for i in ids
+					block[i] = comp
+				end
+			end
+		end=#
+
+	    setrowrange!(mids, columns , c, Val(length(c)))
 	end
 end
 
-function detach_component(ecs::ECSManager, e::Entity, symb::Symbol)
-	bit::UInt128 = one(UInt128) << ecs.components_ids[symb]
-	if (e.archetype & bit == bit)
-		old_signature = e.archetype
-		signature = old_signature & ~bit
-		change_archetype!(get_table(ecs), e, old_signature, signature)
-		e.archetype = signature
-	end
-end
 function detach_component(ecs::ECSManager, e::Entity, symb...)
 	table = get_table(ecs)
 	bit::UInt128 = get_bits(table, symb)
@@ -218,17 +225,6 @@ function detach_component(ecs::ECSManager, e::Entity, symb...)
 		e.archetype = signature
 	end
 end
-function detach_component(ecs::ECSManager, ents::Vector{Entity}, symb::Symbol)
-	isempty(ents) && return
-	
-	e = ents[1]
-	bit::UInt128 = one(UInt128) << ecs.components_ids[symb]
-	if (e.archetype & bit == bit)
-		old_signature = e.archetype
-		signature = xor(old_signature, bit)
-		change_archetype!(get_table(ecs), ents, old_signature, signature)
-	end
-end
 function detach_component(ecs::ECSManager, ents::Vector{Entity}, symb...)
 	isempty(ents) && return
 	
@@ -237,7 +233,10 @@ function detach_component(ecs::ECSManager, ents::Vector{Entity}, symb...)
 	bit::UInt128 = get_bits(table, symb)
 	if (e.archetype & bit >= 0)
 		old_signature = e.archetype
-		signature = xor(old_signature, bit)
-		change_archetype!(table, ents, old_signature, signature)
+		signature = old_signature & ~bit
+		mids = get_id.(ents)
+		fix = Base.Fix1(getindex, table.columns)
+		columns = getdata.(fix.(symb))
+		change_archetype!(get_table(ecs), ents, mids, columns, old_signature, signature)
 	end
 end

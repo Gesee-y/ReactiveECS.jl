@@ -14,7 +14,7 @@ function setup_world_add_remove_large_world(n_entities::Int)
         Comp51, Comp52, Comp53, Comp54, Comp55,
         Comp56, Comp57, Comp58, Comp59, Comp60,
         Comp61, Comp62,
-        Position, Velocity,
+        Position, Velocity
     )
 
     entities = Vector{Entity}()
@@ -36,6 +36,6 @@ function benchmark_world_add_remove_large_world(args, n)
     detach_component(world, ents, :Velocity)
 end
 
-for n in (100, 10_000)
+for n in (100, 10_000, 100_000)
     SUITE["benchmark_world_add_remove_large n=$n"] = @be setup_world_add_remove_large_world($n) benchmark_world_add_remove_large_world(_, $n) seconds = SECONDS
 end

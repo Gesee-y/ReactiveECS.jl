@@ -96,7 +96,7 @@ mutable struct ECSManager
 	## Constructor
 
 	ECSManager() = new(Vector{Optional{Entity}}(), Dict{Symbol,ArchTable}(:main => ArchTable()), :main, 
-        Dict{Symbol, UInt128}(), 1, Int[], Dict{AbstractSystem, Query}(), LogTracer(), Atomic{Int}(0), Atomic{Int}(0), 
+        Dict{Symbol, UInt128}(), 0, Int[], Dict{AbstractSystem, Query}(), LogTracer(), Atomic{Int}(0), Atomic{Int}(0), 
         Condition())
     ECSManager(args...) = begin
         ecs = ECSManager()
@@ -148,7 +148,8 @@ register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = begin
         ecs.bitpos += 1
     end
 
-    register_component!(get_table(ecs),UInt128(1) << ecs.components_ids[Symbol(T)], T)
+    val = UInt128(1) << ecs.components_ids[Symbol(T)]
+    register_component!(get_table(ecs),val, T)
 end
 
 """
