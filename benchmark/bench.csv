@@ -8,7 +8,7 @@ benchmark_query_posvel,1000000,3.1413345
 benchmark_world_add_remove,100,50.65833333333334
 benchmark_world_add_remove,1000,35.132
 benchmark_world_add_remove,10000,43.1055
-benchmark_world_add_remove,100000,640.803885
+benchmark_world_add_remove,100000,96.803885
 benchmark_world_add_remove_8,100,481.58
 benchmark_world_add_remove_8,10000,92.8427
 benchmark_world_add_remove_8,100000,200.78411
