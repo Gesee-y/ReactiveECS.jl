@@ -797,9 +797,6 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
     end
 end
 
-# TODO: REFACTOR ALL THIS 
-# Move data for a single column (component) from a sequence of src ranges to a sequence of dst ranges.
-# src and dst are Arrays of UnitRange{Int} with the same total length.
 @generated function swapmove_entities!(cols, ids::Vector{Int},fillv::Vector{Int}, swapv::Vector{Int}, ::Val{N}) where N
 	expr = Expr(:block)
 	args = expr.args
@@ -832,8 +829,8 @@ end
 
 	push!(args, quote 
 		@inbounds for $params in iter
-			for i in ids
-				id = IDs[i]
+			for i in eachindex(ids)
+				id = ids[i]
 				j,k = fillv[i], swapv[i]
 			    $body
 			end

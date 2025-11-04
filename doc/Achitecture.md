@@ -8,7 +8,7 @@ Game engine development is often perceived as an expert-only domain. Yet, beneat
 
 A poor architecture inevitably leads to technical debt. A good one ensures **modularity**, **maintainability**, and **scalability** over time. Among the leading paradigms, the **Entity-Component-System (ECS)** stands out for its data-oriented design. However, ECS comes with its own set of trade-offs — especially regarding communication between systems ,runtime flexibility and the usual iteration speed vs mutations costs.
 
-This article introduces **Reactive ECS (RECS)**, an hybrid architecture that combines the performance of ECS with the **reactivity and decoupling** of event-driven models while providing the **memory locality** of archetypebased ECS but with lower **mutations costs***. RECS aims to preserve ECS’s cache efficiency while offering a more declarative and composable system pipeline.
+This article introduces **Reactive ECS (RECS)**, an hybrid architecture that combines the performance of ECS with the **reactivity and decoupling** of event-driven models while providing the **memory locality** of archetypebased ECS but with lower **mutations costs**. RECS aims to preserve ECS’s cache efficiency while offering a more declarative and composable system pipeline.
 
 ---
 
@@ -40,7 +40,8 @@ A **sparse set ECS** is an approach where every type of component has his own **
 
 ### Core Principles
 
-- **Structured Storage**: Entities are stored in a partitioned cache-friendly layout.
+- **Structured Storage**: Entities are stored in a partitioned cache-friendly layout.
+
 - **Reactive Processing**: Systems communicate via data pipelines, using `listen_to` for loose coupling.
 - **Entity Pooling**: Reuses memory slots for fast entity creation/deletion.
 
@@ -48,7 +49,8 @@ A **sparse set ECS** is an approach where every type of component has his own **
 
 - **Cache-efficient SoA**: Optimizes memory access for large-scale processing.
 - **Dynamic Subscriptions**: Systems subscribe to a query, which may change at runtime.
-- **Reactive Pipelines**: Systems can listen to others’ outputs, enabling flexible workflows.
+- **Reactive Pipelines**: Systems can listen to others’ outputs, enabling flexible workflows.
+
 - **Runtime Extensibility**: Add, modify, or remove systems without code changes.
 - **Advanced Event System**: Built on [Notifyers.jl](https://github.com/Gesee-y/Notifyers.jl), supporting merge, filtering, one-shot listeners, priorities, and more.
 - **Profiling Tools**: Built-in debugging and visualization for performance analysis.
@@ -83,7 +85,8 @@ end
 function ReactiveECS.run!(world, sys::Physic, ref::WeakRef)
     query = ref.value
     transforms = get_component(world, :Transforms)  # Get all Position components
-    physics = get_component(world, :Physic)
+    physics = get_component(world, :Physic)
+
 
     dt = sys.dt
 
@@ -101,7 +104,8 @@ function ReactiveECS.run!(world, sys::Physic, ref::WeakRef)
 end
 
 function ReactiveECS.run!(world, ::RenderSystem, pos)
-    for t in pos
+    for t in pos
+
         println("Rendering entity at position ($(t.x), $(t.y))")
     end
 end
@@ -129,7 +133,8 @@ for i in 1:N
 
     # We dispatch data and each system will execute his `run!` function
     dispatch_data(world)
-    blocker(world) # Will make the process wait for all systems to finish
+    blocker(world) # Will make the process wait for all systems to finish
+
 end
 ```
 

@@ -23,6 +23,7 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 ## Characteristics and Features  
 
 - **Fast**: One of the fastest ECS in Julia, already outperforming some well-established C/C++ ECS. See [this](https://github.com/Gesee-y/ReactiveECS.jl/blob/main/doc/Achitecture.md).
+- **Unique memory layout**: With a custom data structure named [fragment vectors](https://github.com/Gesee-y/FragmentArrays.jl).
 - **Maximum memory locality**: Using partitions which are range of data, it makes sure entities are tighly packed in memory, allowing vectorization.
 - **Efficient structural changes**: With fragment vectors which allow fast entities/components add/remove.
 - **Performant random access iteration**: With optimized blocks iterators from fragment vectors.
@@ -31,8 +32,7 @@ julia> ] add https://github.com/Gesee-y/ReactiveECS.jl
 - **Granular concurrency safety**: Provides specialized tools like **HierarchicalLock** to help you cleanly manage concurrency.  
 - **Inherently ready for parallelism**: Its partitioned table already acts as chunks for parallel processing with cycles detection.
 - **Easy to use**: Thanks to Julia’s powerful macros, which abstract away complexity.
-- **Allow lazy operations**: Such as lazy entities creation.
-- **Entities hierarchy**: You are allowed to build parent-child relationships betwenn entities.
+- **Allow lazy operations**: Such as lazy entities creation or lazy resizing.
 - **Multiple components per entities**: Through multiple tables and foreign keys.
 - **No memory movements once stable**: Once the ECS reached its peak, no more allocations or desallocations.
 
