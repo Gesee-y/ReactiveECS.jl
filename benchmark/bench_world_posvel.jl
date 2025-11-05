@@ -22,11 +22,14 @@ function benchmark_world_posvel(args, n)
     
     for i in eachindex(positions)
         pblock, ids = positions[i]
+        x = pblock.x
+        y = pblock.y
         vblock = velocities[i][1]
+        dx = vblock.dx
+        dy = vblock.dy
         for j in ids
-            pos = pblock[j]
-            vel = vblock[j]
-            pblock[j] = Position(pos.x+vel.dx, pos.y+vel.dy)
+            x[j] += dx[j]
+            y[j] += dy[j]
         end
     end
 end

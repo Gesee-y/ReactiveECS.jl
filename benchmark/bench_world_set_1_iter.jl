@@ -17,8 +17,9 @@ end
 function benchmark_world_set_1(args, n)
     pos_iter = args
     for (pos_block, ids) in pos_iter
+        x,y = pos_block.x, pos_block.y
         @inbounds for i in ids
-            pos_block[i] = Position(1,2)
+            x[i], y[i] = (1,2)
         end
     end
 end

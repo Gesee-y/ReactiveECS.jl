@@ -15,13 +15,11 @@ function benchmark_query_posvel(args, n)
     posc = getdata(pos_column)
     velc = getdata(vel_column)
     @foreachrange query begin
-        positions = get_block(posc, range[begin])
-        velocities = get_block(velc, range[begin])
+        x = get_block(posc, range[begin]).x
+        dx = get_block(velc, range[begin]).dx
         r = offset(range, get_offset(posc, range[begin]))
         @inbounds for i in r
-            pos = positions[i]
-            vel = velocities[i]
-            positions[i] = Position(pos.x + vel.dx, pos.y + vel.dy)
+            x[i] += dx[i]
         end
     end
 end

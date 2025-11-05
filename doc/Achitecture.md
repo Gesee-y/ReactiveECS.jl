@@ -8,7 +8,7 @@ Game engine development is often perceived as an expert-only domain. Yet, beneat
 
 A poor architecture inevitably leads to technical debt. A good one ensures **modularity**, **maintainability**, and **scalability** over time. Among the leading paradigms, the **Entity-Component-System (ECS)** stands out for its data-oriented design. However, ECS comes with its own set of trade-offs — especially regarding communication between systems ,runtime flexibility and the usual iteration speed vs mutations costs.
 
-This article introduces **Reactive ECS (RECS)**, an hybrid architecture that combines the performance of ECS with the **reactivity and decoupling** of event-driven models while providing the **memory locality** of archetypebased ECS but with lower **mutations costs**. RECS aims to preserve ECS’s cache efficiency while offering a more declarative and composable system pipeline.
+This article introduces **Reactive ECS (RECS)**, an hybrid architecture that combines the performance of ECS with the **reactivity and decoupling** of event-driven models while providing the **memory locality** of archetypeb-ased ECS but with lower **mutations costs**. RECS aims to preserve ECS’s cache efficiency while offering a more declarative and composable system pipeline.
 
 ---
 

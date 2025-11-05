@@ -12,6 +12,7 @@ export swap!, swap_remove!, get_entity, get_range, getdata, offset
 
 const DEFAULT_PARTITION_SIZE = 2^12
 const COPYSIZE = 2^12
+const DEFAULT_LAYOUT = SoALayout
 
 """
     mutable struct EntityRange
@@ -53,13 +54,13 @@ index is an entity.
 """
 mutable struct TableColumn{T}
 	const id::Int
-    const data::FragmentVector{T}
+    const data::FragmentVector{T, DEFAULT_LAYOUT{T}}
     locks::HierarchicalLock{T}
     size::Int
 
     ## Constructor
-    TableColumn(id::Int, s::FragmentVector{T}, size=0) where {T} = new{T}(id,s, HierarchicalLock{T}(), size)
-    TableColumn{T}(id::Int,::UndefInitializer, n::Integer) where T = TableColumn(id,FragmentVector{T}(undef, n), n)
+    TableColumn(id::Int, s::FragmentVector{T, <:DEFAULT_LAYOUT}, size=0) where {T} = new{T}(id,s, HierarchicalLock{T}(), size)
+    TableColumn{T}(id::Int,::UndefInitializer, n::Integer) where T = TableColumn(id,FragmentVector{T, DEFAULT_LAYOUT}(undef, n), n)
 end
 
 """

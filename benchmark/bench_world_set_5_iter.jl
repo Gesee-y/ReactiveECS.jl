@@ -20,14 +20,15 @@ end
 
 function benchmark_world_set_5(args, n)
     iter = args
-    sum = 0.0
+    sum = 0.0 
     @inbounds for (pos, vel, A, B, C, ids) in iter
+        x,y,dx,dy,ax,ay,bx,by,cx,cy = pos.x,pos.y,vel.dx,vel.dy,A.x,A.y,B.x,B.y,C.x,C.y
         for i in ids
-            pos[i] = Position(1, 2)
-            vel[i] = Velocity(0, 0)
-            A[i] = CompA(0, 0)
-            B[i] = CompB(0,0)
-            C[i] = CompC(0,0)
+            x[i],y[i] = 1,2
+            dx[i],dy[i] = 0,0
+            ax[i],ay[i] = 0,0
+            bx[i],by[i] = 0,0
+            cx[i],cy[i] = 0,0
         end
     end
 end

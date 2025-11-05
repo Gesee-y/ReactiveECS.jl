@@ -21,14 +21,13 @@ function benchmark_world_get_5(args, n)
     sum = 0.0
     @inbounds for j in eachindex(pos_iter)
         ids = pos_iter[j][2]
-        position = pos_iter[j][1]
-        velocity = vel_iter[j][1]
-        A = A_iter[j][1]
-        B = B_iter[j][1]
-        C = C_iter[j][1]
+        x = pos_iter[j][1].x
+        dx = vel_iter[j][1].dx
+        ax = A_iter[j][1].x
+        bx = B_iter[j][1].x
+        cx = C_iter[j][1].x
         @inbounds for i in ids
-            pos, vel, a, b, c = position[i], velocity[i], A[i], B[i], C[i]
-            sum += pos.x + vel.dx + a.x + b.x + c.x
+            sum += x[i] + dx[i] + ax[i] + bx[i] + cx[i]
         end
     end
     return sum

@@ -20,9 +20,9 @@ function benchmark_world_get_1(args, n)
     sum = 0.0
 
     for (pos_block, ids) in iter
+        x = pos_block.x
         @inbounds for i in ids
-            pos = pos_block[i]
-            sum += pos.x
+            sum += x[i]
         end
     end
     return sum

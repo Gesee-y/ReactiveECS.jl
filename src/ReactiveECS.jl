@@ -1,6 +1,7 @@
 module ReactiveECS
 
 using Reexport
+using StructArrays
 
 include(joinpath("NodeTree.jl", "src", "NodeTree.jl"))
 include(joinpath("Notifyers.jl", "src", "Notifyers.jl"))
@@ -39,6 +40,8 @@ include("mutable_ints.jl")
 include("sparseset.jl")
 # Entities management
 include("entity.jl")
+# SoA Layout
+include("soa.jl")
 # Table representation
 include("table.jl")
 # Components management
