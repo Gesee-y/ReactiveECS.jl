@@ -258,6 +258,7 @@ This set a given range of a table with the given `data` which is a dictionnary o
 		blk = gensym()
 	    push!(args, quote 
 	    	$m = $ky.map[range[begin]]
+
 	    	$id, $offs = FragmentArrays.decode_mask($m)
 
 	    	$blk::Vector{$T} = $ky.data[$id]
@@ -760,7 +761,7 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
             new_id = t.row_count+1
 
             resize!(t, t.row_count + DEFAULT_PARTITION_SIZE+1, fields)
-            
+            t.row_count += 1
         end
         new_partition.fill_pos += 1
     else
@@ -882,6 +883,7 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, mids, cols, o
             prealloc_range!(getdata(t.columns[c]), t.row_count+1:t.row_count + size)
         end
         resize!(t, t.row_count + size + 1, old_partition.components)
+        t.row_count += 1
     end
     old_partition.fill_pos = max(f1, 1)
 

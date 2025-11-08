@@ -211,7 +211,7 @@ function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComp
 			end
 		end=#
 
-	    setrowrange!(mids, columns , c, Val(length(c)))
+	    #setrowrange!(mids, columns , c, Val(length(c)))
 	end
 end
 
