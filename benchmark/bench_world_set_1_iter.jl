@@ -9,7 +9,7 @@ function setup_world_set_1(n_entities::Int)
         push!(entities, create_entity!(world, (; Position=Position(i, i*2))))
     end
 
-    ids = getindex.(get_id.(entities))
+    ids = getindex.(entities)
 
     return get_iterator(getdata(pos), ids)
 end

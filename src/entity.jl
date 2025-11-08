@@ -48,6 +48,7 @@ Base.show(io::IO, e::Entity) = print(io, "Entity(id=$(e.ID[]), alive=$(e.alive))
 Base.show(e::Entity) = show(stdout, e)
 setid!(e::Entity, id::Int) = setfield!(e, :ID, id)
 setarchetype!(e::Entity, arch) = setfield!(e, :archetype, arch)
+Base.getindex(e::Entity) = e.ID & 0xffffffff
 
 #=function Base.getproperty(e::Entity, s::Symbol)
     s in getfield(e, :components) || return getfield(e, s)

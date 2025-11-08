@@ -13,7 +13,7 @@ function setup_world_set_5(n_entities::Int)
          CompC=CompC(0, 0))))
     end
 
-    ids = get_id.(entities)
+    ids = getindex.(entities)
 
     return get_iterator((getdata(pos), getdata(vel), getdata(A), getdata(B), getdata(C)), ids)
 end

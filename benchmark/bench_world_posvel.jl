@@ -12,7 +12,7 @@ function setup_world_posvel(n_entities::Int)
         push!(entities, create_entity!(world, (; Position=Position(i, i*2), Velocity=Velocity(1,1))))
     end
 
-    ids = getindex.(get_id.(entities))
+    ids = getindex.(entities)
 
     return (get_iterator(getdata(pos), ids), get_iterator(getdata(vel), ids))
 end

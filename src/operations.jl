@@ -34,7 +34,7 @@ function create_entity!(ecs::ECSManager, comp::NamedTuple; parent=ecs, size=DEFA
 	entity.ID = id
 	setrow!(table, id, comp) # We then initialize the components
 
-	table.entities[id] = entity
+	table.entities[id & 0xffffffff] = entity
 
 	return entity
 end
@@ -51,7 +51,7 @@ function create_entity!(ecs::ECSManager, key::Tuple; parent=ecs, size=DEFAULT_PA
 
 	entity = isassigned(entities, id) ? entities[id] : Entity(id, signature, WeakRef(ecs))
 	entity.ID = id
-	table.entities[id] = entity
+	table.entities[id & 0xffffffff] = entity
 
 	return entity
 end
