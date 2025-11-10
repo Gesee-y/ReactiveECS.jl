@@ -12,7 +12,7 @@ export swap!, swap_remove!, get_entity, get_range, getdata, offset
 
 const DEFAULT_PARTITION_SIZE = 2^12
 const COPYSIZE = 2^12
-const DEFAULT_LAYOUT = ViewLayout
+const DEFAULT_LAYOUT = SoALayout
 
 """
     mutable struct EntityRange
@@ -820,14 +820,14 @@ function change_archetype!(t::ArchTable, e::Entity, old_arch::Integer, new_arch:
     end
 
     # Finalize old slot
-    if i != j
-        if !isassigned(entities, j)
-	        entities[j] = Entity(0, old_arch, e.world)
-        end
-	    
-        entities[i] = entities[j]
-        entities[i].ID = id
-    end
+    #if i != j
+    #    if !isassigned(entities, j)
+	#        entities[j] = Entity(0, old_arch, e.world)
+    #    end
+	#    
+    #    entities[i] = entities[j]
+    #    entities[i].ID = id
+    #end
 end
 
 @generated function swapmove_entities!(cols, ids::Vector{Int},fillv::Vector{Int}, swapv::Vector{Int}, ::Val{N}) where N
@@ -982,13 +982,13 @@ function change_archetype!(t::ArchTable, entities::Vector{Entity}, mids, cols, o
         v = id & 0xffffffff
         e.ID = (to_map[i] << 32) | j
         
-        if v != k
+        #=if v != k
 	        if !isassigned(t.entities, k)
 	        	t.entities[k] = Entity(0, old_arch, e.world)
 	        end
 	        t.entities[v] = t.entities[k]
 	        t.entities[k].ID = id
-	    end
+	    end=#
         setarchetype!(e, new_arch)
     end
 end
