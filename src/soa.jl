@@ -11,7 +11,19 @@ struct SoALayout{T} <: AbstractArrayLayout{T}
 	SoALayout{T}() where T = SoALayout{T}(undef, 0)
 end
 
+struct ViewLayout{T} <: AbstractArrayLayout{T}
+	data::FieldViewable{T, 1, Vector{T}}
+
+	## Constructors
+
+	ViewLayout{T}(::UndefInitializer, n) where T = new{T}(FieldViewable(Vector{T}(undef, n)))
+	ViewLayout{T}() where T = ViewLayout{T}(undef, 0)
+end
+
 struct EntityIndexing <: FragmentIndexingStyle end
+
+Base.getproperty(v::ViewLayout, s::Symbol) = getproperty(getfield(v, :data), s)
+Base.setproperty!(v::ViewLayout, val, s) = setproperty!(getfield(v, :data), val, s)
 
 @generated function Base.setindex!(s::SoALayout{T}, v, i) where T
 	expr = Expr(:block)
@@ -37,6 +49,10 @@ end
 function Base.setindex!(f::FragmentVector{T,C,EntityIndexing}, v, i) where {T, C}
 	id, j = i >> 32, i & 0xffffffff
 	return f.data[id][j - f.offset[id]] = v
+end
+hasindex(f::FragmentVector{T,C,EntityIndexing}, i) where {T,C} = begin
+    id, j = i >> 32, i & 0xffffffff
+    return FragmentArrays._inside_block(f.data[id], f.offset[id], j)
 end
 
 function defgetindex(f::FragmentVector, i)

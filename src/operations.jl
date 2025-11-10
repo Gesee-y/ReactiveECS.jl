@@ -196,10 +196,11 @@ function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComp
 		fix = Base.Fix1(getindex, table.columns)
 		columns = getdata.(fix.(symb))
 		change_archetype!(table, ents, mids, columns, old_signature, signature, false; other=symb)
+		mids = get_id.(ents)
 
-		#=@time iter = get_iterator(columns, ids)
+		#=iter = get_iterator(columns, getindex.(ents))
 
-		for datas in iter
+		@inbounds for datas in iter
 			ids = datas[end]
 			blocks = datas[begin:end-1]
 			for j in eachindex(blocks)
@@ -210,8 +211,9 @@ function attach_component(ecs::ECSManager, ents::Vector{Entity}, c::AbstractComp
 				end
 			end
 		end=#
+		#println(bitstring.(mids))
 
-	    #setrowrange!(mids, columns , c, Val(length(c)))
+	    setrowrangeid!(mids, columns , c, Val(length(c)))
 	end
 end
 
