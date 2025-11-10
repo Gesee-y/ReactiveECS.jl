@@ -596,7 +596,7 @@ function swap_remove!(t::ArchTable, e::Entity)
 			    e.alive = false
 			end
 
-			swap!(t, i, j; fields=e.components)
+			swap!(t, i, (id1 & ~0xffffffff) | j; fields=e.components)
 		end
 	else
 		j = partition.zones[end][end]
