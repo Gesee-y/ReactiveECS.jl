@@ -2,7 +2,7 @@
 
 julia_version = "1.10.5"
 manifest_format = "2.0"
-project_hash = "ae412192bdcbf15791b46312c36f1830265e3379"
+project_hash = "41812d1017433f036e086f18cf13fb88bbc494de"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "MacroTools"]
@@ -65,6 +65,13 @@ version = "1.0.0"
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+
+[[deps.ECSInterface]]
+git-tree-sha1 = "fb5215c681b0e7eedcd9245c829fcefc493e36bb"
+repo-rev = "main"
+repo-url = "https://github.com/Gesee-y/ECSInterface.jl"
+uuid = "ed54f85f-9ee8-4912-9e4a-a43af611f8a9"
+version = "0.1.0"
 
 [[deps.FieldViews]]
 deps = ["Accessors"]
