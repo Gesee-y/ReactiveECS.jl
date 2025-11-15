@@ -21,20 +21,18 @@ This struct represent an entity for the ECS. An entity is just an `ID`, which is
 `components` is the name of the components that the entity have.
 `world` is a weak reference to the manager object.
 """
-mutable struct Entity
+mutable struct Entity <: AbstractEntity
 	ID::Int64
     alive::Bool
-    parentID::MInt64
 	archetype::UInt128
 	world::WeakRef
-    children::Vector{MInt64}
 
     ## Constructors
 
-    Entity(id::Int, archetype::Integer, ref; parentID=MInt64(-1)) = new(id, true, parentID, 
-        archetype, ref, MInt64[])
+    Entity(id::Int, archetype::Integer, ref;) = new(id, true, 
+        archetype, ref)
 
-    Entity(e::Entity; parentID=MInt64(-1)) = new(get_id(e), true, parentID, e.archetype, e.world, MInt64[])
+    Entity(e::Entity) = new(get_id(e), true, e.archetype, e.world)
 end
 
 struct ComponentWrapper
@@ -49,27 +47,8 @@ Base.show(e::Entity) = show(stdout, e)
 setid!(e::Entity, id::Int) = setfield!(e, :ID, id)
 setarchetype!(e::Entity, arch) = setfield!(e, :archetype, arch)
 Base.getindex(e::Entity) = e.ID & 0xffffffff
+ECSInterface.is_alive(e::Entity) = e.alive
 
-#=function Base.getproperty(e::Entity, s::Symbol)
-    s in getfield(e, :components) || return getfield(e, s)
-    column = get_component(getfield(e, :world).value, s)
-    return ComponentWrapper(get_id(e), WeakRef(column))
-end
-function Base.setproperty!(e::Entity, v, s::Symbol)
-    s in getfield(e, :components) || return setfield!(e, v, s)
-    column = get_component(e.world.value, s)
-    column[get_id(e)[]] = v
-end
-
-function Base.getproperty(c::ComponentWrapper, s::Symbol)
-    column = getfield(c, :column).value
-    return getproperty(column, s)[getfield(c, :id)[]]
-end
-function Base.setproperty!(c::ComponentWrapper, v, s::Symbol)
-    column = getfield(c, :column).value
-    return getproperty(column, s)[getfield(c, :id)[]] = v
-end
-=#
 """
     get_tree(e::Entity)
 

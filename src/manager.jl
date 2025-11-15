@@ -18,7 +18,7 @@ export dispatch_data, register_component!, get_component, blocker, get_lock, get
 This represent the result of a query. `masks` is all the mask that represent the query.
 `partitions` is evry partitions that has matched the query.
 """
-mutable struct Query
+mutable struct Query <: AbstractQuery
     mask::UInt128
     exclude::UInt128
     partitions::Vector{Tuple{WeakRef,TablePartition}}  # WeakRefs to the partitions
@@ -56,6 +56,26 @@ macro query(world_expr, cond_expr)
     end
 end
 
+function ECSInterface.query(ecs, comps; without=(), with=())
+    table = get_table(ecs)
+    symbs_in = to_symbol.(comps)
+    symbs_out = to_symbol.(without)
+
+    mask = get_bits(table, symbs_in)
+    exclude = get_bits(table, symbs_out)
+
+    matching_parts = Tuple{WeakRef,TablePartition}[]
+    for table in values(tables)
+        for (arch_mask, part) in table.partitions
+            if ((arch_mask & mask) == mask) && (arch_mask & exclude) == arch_mask
+                push!(matching_parts, (WeakRef(table),part))
+            end
+        end
+    end
+
+    return Query(mask, exclude, matching_parts)
+end
+
 macro foreachrange(query, body)
     return esc(quote
         for partition in $query
@@ -80,7 +100,7 @@ So that it doesn't interfer with other possible type you would like to pass to y
 """
 struct SysToken end
 
-mutable struct ECSManager
+mutable struct ECSManager <: AbstractECS
 	entities::Vector{Optional{Entity}}
 	tables::Dict{Symbol,ArchTable} # Contain all the data
 	main::Symbol

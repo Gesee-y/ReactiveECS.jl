@@ -17,9 +17,12 @@ function benchmark_query_posvel(args, n)
     @foreachrange query begin
         x = get_block(posc, range[begin]).x
         dx = get_block(velc, range[begin]).dx
+        y = get_block(posc, range[begin]).y
+        dy = get_block(velc, range[begin]).dy
         r = offset(range, get_offset(posc, range[begin]))
         @inbounds for i in r
             x[i] += dx[i]
+            y[i] += dy[i]
         end
     end
 end
