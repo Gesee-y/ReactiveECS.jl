@@ -2,13 +2,17 @@ module ReactiveECS
 
 using Reexport
 using StructArrays
+using FieldViews
+@reexport using ECSInterface
 
 include(joinpath("NodeTree.jl", "src", "NodeTree.jl"))
 include(joinpath("Notifyers.jl", "src", "Notifyers.jl"))
+include(joinpath("FragmentArrays", "src", "FragmentArrays.jl"))
 include("hierarchical_lock.jl")
 
 @reexport using .NodeTree
 @reexport using .Notifyers
+@reexport using .FragmentArrays
 using .Threads
 @reexport using .HierarchicalLocks
 
@@ -38,6 +42,8 @@ include("mutable_ints.jl")
 include("sparseset.jl")
 # Entities management
 include("entity.jl")
+# SoA Layout
+include("soa.jl")
 # Table representation
 include("table.jl")
 # Components management

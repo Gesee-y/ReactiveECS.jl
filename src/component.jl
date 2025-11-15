@@ -45,7 +45,7 @@ macro component(name, block)
 				T = $struct_name
 				f = QuoteNode(field)
 				type = fieldtype($struct_name, field)
-				eval(:(get_field(st::TableColumn{$T},
+				eval(:(get_field(st::SoALayout{$T},
 					::Val{$f})::Vector{$type} = getproperty(getfield(st, :data), ($f))
 				))
 		    end
@@ -79,5 +79,6 @@ function get_bits(table::ArchTable, ss::Tuple)
 end
 get_bits(n::Integer) = UInt128(n)
 
+Base.getproperty(s::SoALayout, p::Symbol) = get_field(s, Val(p))
 
 _default_suffix() = ""

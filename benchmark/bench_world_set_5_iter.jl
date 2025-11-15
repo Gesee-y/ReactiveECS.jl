@@ -13,20 +13,26 @@ function setup_world_set_5(n_entities::Int)
          CompC=CompC(0, 0))))
     end
 
-    return (get_id.(entities), pos, vel, A, B, C)
+    ids = getindex.(entities)
+
+    return get_iterator((getdata(pos), getdata(vel), getdata(A), getdata(B), getdata(C)), ids)
 end
 
 function benchmark_world_set_5(args, n)
-    ids, pos, vel, A, B, C = args
-    @inbounds for i in ids
-        pos[i] = Position(1, 2)
-        vel[i] = Velocity(0, 0)
-        A[i] = CompA(0, 0)
-        B[i] = CompB(0,0)
-        C[i] = CompC(0,0)
+    iter = args
+    sum = 0.0 
+    @inbounds for (pos, vel, A, B, C, ids) in iter
+        x,y,dx,dy,ax,ay,bx,by,cx,cy = pos.x,pos.y,vel.dx,vel.dy,A.x,A.y,B.x,B.y,C.x,C.y
+        for i in ids
+            x[i],y[i] = 1,2
+            dx[i],dy[i] = 0,0
+            ax[i],ay[i] = 0,0
+            bx[i],by[i] = 0,0
+            cx[i],cy[i] = 0,0
+        end
     end
 end
 
 for n in (100, 10_000)
-    SUITE["benchmark_world_set_5 n=$n"] = @be setup_world_set_5($n) benchmark_world_set_5(_, $n) seconds = SECONDS
+    SUITE["benchmark_world_set_5_iter n=$n"] = @be setup_world_set_5($n) benchmark_world_set_5(_, $n) seconds = SECONDS
 end

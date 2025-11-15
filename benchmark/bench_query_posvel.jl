@@ -12,11 +12,17 @@ end
 
 function benchmark_query_posvel(args, n)
     pos_column, vel_column, query = args
+    posc = getdata(pos_column)
+    velc = getdata(vel_column)
     @foreachrange query begin
-        @inbounds for i in range
-            pos = pos_column[i]
-            vel = vel_column[i]
-            pos_column[i] = Position(pos.x + vel.dx, pos.y + vel.dy)
+        x = get_block(posc, range[begin]).x
+        dx = get_block(velc, range[begin]).dx
+        y = get_block(posc, range[begin]).y
+        dy = get_block(velc, range[begin]).dy
+        r = offset(range, get_offset(posc, range[begin]))
+        @inbounds for i in r
+            x[i] += dx[i]
+            y[i] += dy[i]
         end
     end
 end

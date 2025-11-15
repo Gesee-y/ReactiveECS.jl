@@ -9,12 +9,12 @@ function setup_world_set_1(n_entities::Int)
         push!(entities, create_entity!(world, (; Position=Position(i, i*2))))
     end
 
-    return (getindex.(get_id.(entities)), pos)
+    return (get_id.(entities), pos)
 end
 
 function benchmark_world_set_1(args, n)
     ids, pos = args
-    for i in ids
+    @inbounds for i in ids
         pos[i] = Position(1, 2)
     end
 end

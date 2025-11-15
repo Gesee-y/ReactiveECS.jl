@@ -18,7 +18,7 @@ mutable struct ArchetypeMap{V}
     keys::Vector{UInt128}
     vals::Vector{V}
     used::BitVector
-    mask::Int
+    mask::UInt128
     index::Vector{Int}
 
     ## Constructors
@@ -65,19 +65,21 @@ hasindex(s::SparseSet, id) = s.sparse[id] != 0
 
 ###################### HashMap
 
+const MUL_NUM = UInt128(11400714819323198485)
+
 Base.getindex(m::ArchetypeMap, key) = getindex(m, UInt128(key))
 @inline function Base.getindex(m::ArchetypeMap, key::UInt128)
-    i = (key * 11400714819323198485) & m.mask + 1
+    i = (key * MUL_NUM) & m.mask + 1
     while m.used[i]
         m.keys[i] == key && return m.vals[i]
         i = (i & m.mask) + 1
     end
-    error("key not found")
+    error("key $(key) not found")
 end
-
+Base.length(a::ArchetypeMap) = length(a.index)
 Base.setindex!(m::ArchetypeMap, v, key) = setindex!(m, v, UInt128(key))
 @inline function Base.setindex!(m::ArchetypeMap{V}, val::V, key::UInt128) where V
-    i = (key * 11400714819323198485) & m.mask + 1
+    i = (key * MUL_NUM) & m.mask + 1
     while m.used[i]
         if m.keys[i] == key
             m.vals[i] = val
@@ -98,7 +100,7 @@ function Base.iterate(m::ArchetypeMap, state=1)
 end
 
 function Base.haskey(m::ArchetypeMap, key)
-    i = (key * 11400714819323198485) & m.mask + 1
+    i = (key * MUL_NUM) & m.mask + 1
     while m.used[i]
         if m.keys[i] == key
             return true

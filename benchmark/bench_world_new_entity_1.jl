@@ -3,15 +3,15 @@ function setup_world_new_entity_1(n::Int)
     world = ECSManager(Position, Velocity)
 
     # Run once to allocate memory
-    entities = Vector{Entity}()
-    for _ in 1:n
-        e = create_entity!(world, (;Position=Position(0, 0),))
-        push!(entities, e)
-    end
+    #entities = Vector{Entity}()
+    #for _ in 1:n
+    #    e = create_entity!(world, (;Position=Position(0, 0),))
+    #    push!(entities, e)
+    #end
 
-    for e in entities
-        remove_entity!(world, e)
-    end
+    #for e in entities
+    #    remove_entity!(world, e)
+    #end
 
     return world
 end

@@ -38,9 +38,6 @@ struct SimpleDict{T <: Any,N <: Any}
 	SimpleDict() = new{Any,Any}([],[])
 	SimpleDict{T,N}() where{T <: Any, N <: Any} = new{T,N}(T[],N[])
 end
-
-Base.length(d::SimpleDict) = length(getfield(d,:ky))
-
 function Base.getindex(d::SimpleDict,ky)
 	key = getfield(d,:ky)
 	

@@ -40,6 +40,6 @@ function benchmark_world_add_remove_8_large(args, n)
             :Comp6, :Comp7, :Comp8)
 end
 
-for n in (100, 10_000)
+for n in (100, 10_000, 100000)
     SUITE["benchmark_world_add_remove_8_large n=$n"] = @be setup_world_add_remove_8_large($n) benchmark_world_add_remove_8_large(_, $n) seconds = SECONDS
 end

@@ -51,4 +51,4 @@ println("partitions created: $(length(world.tables[:main].partitions))")
 println("")
 
 cols = world.tables[:main].columns
-println(Base.summarysize(collect(values(cols)))/1024, "Ko")
+println(Base.summarysize(collect(values(cols)))/1024/1024, "Mo")

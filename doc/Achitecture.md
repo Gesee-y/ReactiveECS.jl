@@ -6,9 +6,9 @@
 
 Game engine development is often perceived as an expert-only domain. Yet, beneath every performant engine lies a single unifying force: **software architecture**.
 
-A poor architecture inevitably leads to technical debt. A good one ensures **modularity**, **maintainability**, and **scalability** over time. Among the leading paradigms, the **Entity-Component-System (ECS)** stands out for its data-oriented design. However, ECS comes with its own set of trade-offs — especially regarding communication between systems and runtime flexibility.
+A poor architecture inevitably leads to technical debt. A good one ensures **modularity**, **maintainability**, and **scalability** over time. Among the leading paradigms, the **Entity-Component-System (ECS)** stands out for its data-oriented design. However, ECS comes with its own set of trade-offs — especially regarding communication between systems ,runtime flexibility and the usual iteration speed vs mutations costs.
 
-This article introduces **Reactive ECS (RECS)** — a hybrid architecture that combines the performance of ECS with the **reactivity and decoupling** of event-driven models. RECS aims to preserve ECS’s cache efficiency while offering a more declarative and composable system pipeline.
+This article introduces **Reactive ECS (RECS)**, an hybrid architecture that combines the performance of ECS with the **reactivity and decoupling** of event-driven models while providing the **memory locality** of archetypeb-ased ECS but with lower **mutations costs**. RECS aims to preserve ECS’s cache efficiency while offering a more declarative and composable system pipeline.
 
 ---
 
@@ -22,38 +22,35 @@ Modern ECS frameworks often rely on the notion of **archetypes**: groupings of e
 
 ---
 
-### Bitset Representation
+### Type of ECS
 
-A classical approach involves representing archetypes using bitsets. This allows for fast checks using bitwise operations:
+#### Archetype ECS
 
-```julia
-archetype = 0b0011  # The entity has components 1 and 2
-physic    = 0b0010  # The "Physic" system requires only component 2
+An **archetype ECS** is an implementation of the ECS where entities with the same set of components is stored in the same table. This table is called an **archetype**. Since entities are homogeneously stored and tightly packed in memory, this approach offers high queries and iteration performances but at the cost of slower **structural changes** such as adding/removing an entity or a component from an entity.
 
-if (archetype & physic == physic)
-    # The entity is compatible with the Physic system
-end
-```
+#### Sparse-set ECS
 
-This method is performant but less scalable at large scale (binary limits, complex management). One can also use **dynamic queries**, but their cost is non-negligible.
+A **sparse set ECS** is an approach where every type of component has his own **sparse set**, then each entity has an entry at his ID in the sparse set of the components it have. This offers fast structural changes but iterations speed and memory locality are greatly reduced.
 
 ---
 
 ## What is RECS?
 
-**Reactive ECS (RECS)** is a high-performance ECS framework built in Julia, designed to combine the efficiency of data-oriented design with the flexibility of reactive programming. At its core, RECS uses a centralized **ECSManager** that stores entities in a **Struct of Arrays (SoA)** layout in a columnar way (entities are rows, components are columns), represent archetypes with **partitions**, use query to get the relevant partitions and dispatches them to subscribed systems.
+**Reactive ECS (RECS)** is a high-performance ECS framework built in Julia, designed to combine the efficiency of data-oriented design with the flexibility of reactive programming. At its core, RECS uses a centralized **ECSManager** that stores entities in a columnar way (entities are rows, components are columns), represent archetypes with **partitions**, use query to get the relevant partitions and dispatches them to subscribed systems.
 
 ### Core Principles
-- **Structured Storage**: Entities are stored in a partitioned cache-friendly SoA layout.
-- **Targeted Dispatch**: Systems receive only the data they need, minimizing overhead.
+
+- **Structured Storage**: Entities are stored in a partitioned cache-friendly layout.
+
 - **Reactive Processing**: Systems communicate via data pipelines, using `listen_to` for loose coupling.
 - **Entity Pooling**: Reuses memory slots for fast entity creation/deletion.
 
 ### Key Features
+
 - **Cache-efficient SoA**: Optimizes memory access for large-scale processing.
 - **Dynamic Subscriptions**: Systems subscribe to a query, which may change at runtime.
 - **Reactive Pipelines**: Systems can listen to others’ outputs, enabling flexible workflows.
-- **Low Allocations**: Minimal memory overhead during dispatch and execution.
+
 - **Runtime Extensibility**: Add, modify, or remove systems without code changes.
 - **Advanced Event System**: Built on [Notifyers.jl](https://github.com/Gesee-y/Notifyers.jl), supporting merge, filtering, one-shot listeners, priorities, and more.
 - **Profiling Tools**: Built-in debugging and visualization for performance analysis.
@@ -89,22 +86,26 @@ function ReactiveECS.run!(world, sys::Physic, ref::WeakRef)
     query = ref.value
     transforms = get_component(world, :Transforms)  # Get all Position components
     physics = get_component(world, :Physic)
-    x_pos = transforms.x
-    velocities = physics.velocity
+
 
     dt = sys.dt
 
     @foreachrange query begin
-        for idx in range
-            x_pos[idx] += velocities[idx]*dt  # Move entity along x-axis
+        pblock = get_block(transforms, range)
+        vblock = get_block(physics, range)
+        r = offset(range, get_offset(transforms, range))
+        for i in r
+            pos = pblock[i]
+            vel = vblock[i]
+            pblock[i] = Position(pos.x + vel.velocity*dt, pos.y) # Move entity along x-axis
         end
     end
     return transforms  # Pass data to listeners
 end
 
 function ReactiveECS.run!(world, ::RenderSystem, pos)
-    for i in eachindex(pos)
-        t = pos[i]
+    for t in pos
+
         println("Rendering entity at position ($(t.x), $(t.y))")
     end
 end
@@ -133,8 +134,7 @@ for i in 1:N
     # We dispatch data and each system will execute his `run!` function
     dispatch_data(world)
     blocker(world) # Will make the process wait for all systems to finish
-    yield()
-    sleep(0.016)
+
 end
 ```
 
@@ -146,9 +146,15 @@ end
 
 #### **Internal Storage**
 
-Components are stored in a partitioned **Struct of Arrays (SoA)** layout. When a new component is added, its SoA resizes to match the size of others, ensuring consistent index mapping. This is usually done at the component creation with `register_component!(world, type)`. When an entity is added, It's added to a partition representing its archetype, and the index in that partition becomes the entity ID. Upon removal, the entity is swapped with the last entity of the partition and the partition shrink.
+Each components are stored in his own partitioned **fragment vector** layout. A fragmet vector is a data structure made during the process of maki g ReactiveECS.jl. It's like sparse set but represent a contiguous range of data as a fragment (chunk of a vector) and use an internal map (vector of UInt64) to know which fragment and with which offset each index have.
+You can think of fragment vectors as a fusion of sparse sets and archetypes. A data structure that sparsely store chunk of data.
+
+When a new component is added, the internal map of his fragment vector resizes to match the size of others, ensuring consistent index mapping. This is usually done at component creation with `register_component!(world, type)`. 
+When an entity is added, It's added to a partition representing its archetype, and the index in that partition becomes the entity ID. Upon removal, the entity is swapped with the last entity of the partition and the partition shrink.
 
 Unused slots remain undefined but reserved — enabling **fast pooling** and simple memory reuse.
+
+This layout allows fast iterations du to partitioning but also decently fast structural changes do to the sparse nature of fragment vectors.
 
 ```
         INTERNAL STORAGE
@@ -196,7 +202,7 @@ The `ECSManager` acts as the central coordinator. It holds all components using 
 
 A  `Query` is a struct containing the matching partitions for that system. Each partition contain the range of the matching entities and these range can easily be accessed with `@foreachrange`
 
-This design eliminates the need for explicitly optional components — systems technically have access to all registered components due to the sparse nature of the data's storage — but only the relevant subset is prefiltered and passed to them for iteration.
+This design eliminates the need for explicitly optional components, systems technically have access to all registered components due to the sparse nature of the data's storage, but only the relevant subset is prefiltered and passed to them for iteration.
 
 ### Subscription Logic
 
@@ -358,8 +364,7 @@ By default, the logs aren't directly written to a file. You should use `write!(i
 ## Advantages of RECS
 
 - **High Performance**: Cache efficency, vectorized updates, etc.
-- **Improved memory locality**: components stored in contiguous SoA layout with partitions to ensure data alignment.
-- **Stable performance**: one dispatch per tick, no redundant queries.
+- **Improved memory locality**: components stored in fragment vector layout with partitions to ensure data alignment.
 - **Reactive Design**: `listen_to` enables decoupled, dynamic system pipelines.
 - **Flexible Events**: Merge, one-shot, and prioritized events enhance reactivity.
 - **Scalability**: Efficient for 100k+ entities, with pooling and SoA.
@@ -371,12 +376,13 @@ By default, the logs aren't directly written to a file. You should use `write!(i
 
 - **Synchronization overhead**: There are some 10-50 μs due to synchronizing systems paid per frame
 - **Asynchronous Complexity**: Reactive pipelines can be harder to debug, though mitigated by profiling tools.
+- **Learning curve**: The ECS introduces multiple novel concepts which may be hard to learn at first.
 
 ---
 
 ## Conclusion
 
-RECS overcomes classical ECS limitations by offering **better scalability**, **good stability**, **a reactive architecture**, and improved readiness for **parallel or distributed processing**.
+RECS overcomes classical ECS limitations by offering **better scalability**, **good stability**, **a reactive architecture**, and readiness for **parallel or distributed processing**.
 This architecture is particularly suited for real-time simulation, 2D/3D games, and projects requiring dynamic reactivity without compromising performance.
 This model has been implemented for my experimental game engine in Julia. It combines ECS simplicity with targeted dispatch reactivity, without sacrificing performance.
 

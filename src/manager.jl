@@ -6,7 +6,7 @@
 
 export Query, ECSManager, SysToken
 export @query, @foreachrange
-export dispatch_data, register_component!, get_component, blocker, get_lock
+export dispatch_data, register_component!, get_component, blocker, get_lock, get_component_offset
 
 ######################################################### Core ##########################################################
 
@@ -18,7 +18,7 @@ export dispatch_data, register_component!, get_component, blocker, get_lock
 This represent the result of a query. `masks` is all the mask that represent the query.
 `partitions` is evry partitions that has matched the query.
 """
-mutable struct Query
+mutable struct Query <: AbstractQuery
     mask::UInt128
     exclude::UInt128
     partitions::Vector{Tuple{WeakRef,TablePartition}}  # WeakRefs to the partitions
@@ -56,6 +56,26 @@ macro query(world_expr, cond_expr)
     end
 end
 
+function ECSInterface.query(ecs, comps; without=(), with=())
+    table = get_table(ecs)
+    symbs_in = to_symbol.(comps)
+    symbs_out = to_symbol.(without)
+
+    mask = get_bits(table, symbs_in)
+    exclude = get_bits(table, symbs_out)
+
+    matching_parts = Tuple{WeakRef,TablePartition}[]
+    for table in values(tables)
+        for (arch_mask, part) in table.partitions
+            if ((arch_mask & mask) == mask) && (arch_mask & exclude) == arch_mask
+                push!(matching_parts, (WeakRef(table),part))
+            end
+        end
+    end
+
+    return Query(mask, exclude, matching_parts)
+end
+
 macro foreachrange(query, body)
     return esc(quote
         for partition in $query
@@ -63,6 +83,7 @@ macro foreachrange(query, body)
             zones::Vector{TableRange} = partition[2].zones
 
             for zone in zones
+
                 range = get_range(zone)
 
                 $body
@@ -79,11 +100,11 @@ So that it doesn't interfer with other possible type you would like to pass to y
 """
 struct SysToken end
 
-mutable struct ECSManager
+mutable struct ECSManager <: AbstractECS
 	entities::Vector{Optional{Entity}}
 	tables::Dict{Symbol,ArchTable} # Contain all the data
 	main::Symbol
-    components_ids::Dict{Symbol, Int}
+    components_ids::Dict{Symbol, UInt128}
     bitpos::Int
     root::Vector{Int}
 	queries::Dict{AbstractSystem, Query}
@@ -95,7 +116,7 @@ mutable struct ECSManager
 	## Constructor
 
 	ECSManager() = new(Vector{Optional{Entity}}(), Dict{Symbol,ArchTable}(:main => ArchTable()), :main, 
-        Dict{Symbol, Int}(), 1, Int[], Dict{AbstractSystem, Query}(), LogTracer(), Atomic{Int}(0), Atomic{Int}(0), 
+        Dict{Symbol, UInt128}(), 0, Int[], Dict{AbstractSystem, Query}(), LogTracer(), Atomic{Int}(0), Atomic{Int}(0), 
         Condition())
     ECSManager(args...) = begin
         ecs = ECSManager()
@@ -147,7 +168,8 @@ register_component!(ecs::ECSManager, T::Type{<:AbstractComponent}) = begin
         ecs.bitpos += 1
     end
 
-    register_component!(get_table(ecs),UInt128(1) << ecs.components_ids[Symbol(T)], T)
+    val = UInt128(1) << ecs.components_ids[Symbol(T)]
+    register_component!(get_table(ecs),val, T)
 end
 
 """
@@ -160,6 +182,18 @@ get_component(ecs::ECSManager, s::Symbol) = begin
     return w[s]
 end
 get_component(ecs::ECSManager, T::Type) = get_component(ecs, to_symbol(type))
+function get_component(ecs::ECSManager, t, r::UnitRange)
+    m = r[begin]
+    comp = getdata(get_component(ecs, t))
+    id = comp.map[m]
+    return m.data[id]
+end
+function get_component_offset(ecs::ECSManager, t, r::UnitRange)
+    m = r[begin]
+    comp = getdata(get_component(ecs, t))
+    id = comp.map[m]
+    return m.offset[id]
+end
 
 Base.iterate(q::Query, i=1) = i > length(q.partitions) ? nothing : (q.partitions[i], i+1)
 
