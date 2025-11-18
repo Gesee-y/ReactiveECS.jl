@@ -4,7 +4,10 @@ authors = ["Kaptue Talom Lael <gesee37@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 ECSInterface = "ed54f85f-9ee8-4912-9e4a-a43af611f8a9"
 FieldViews = "ff5a1669-b1f2-423e-bbd7-b7fa0f7e0224"
+LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
