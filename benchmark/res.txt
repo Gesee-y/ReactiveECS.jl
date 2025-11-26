@@ -1,0 +1,134 @@
+Benchmarks
+
+columns: name, size, median time ns per op
+
+RECS results
+
+benchmark_query_create            1000  463.23ns
+benchmark_query_posvel             100    1.22ns
+benchmark_query_posvel            1000    1.15ns
+benchmark_query_posvel           10000    1.14ns
+benchmark_query_posvel          100000    3.77ns
+benchmark_query_posvel         1000000    3.73ns
+benchmark_world_add_remove         100   89.47ns
+benchmark_world_add_remove        1000   43.42ns
+benchmark_world_add_remove       10000   42.04ns
+benchmark_world_add_remove      100000   66.02ns
+benchmark_world_add_remove_8       100  394.74ns
+benchmark_world_add_remove_8     10000   94.07ns
+benchmark_world_add_remove_8    100000  143.27ns
+benchmark_world_add_remove_8_large     100  367.10ns
+benchmark_world_add_remove_8_large   10000   92.53ns
+benchmark_world_add_remove_8_large  100000  115.00ns
+benchmark_world_add_remove_large     100   69.08ns
+benchmark_world_add_remove_large   10000   41.92ns
+benchmark_world_add_remove_large  100000   68.38ns
+benchmark_world_get_1              100    0.91ns
+benchmark_world_get_1             1000    0.93ns
+benchmark_world_get_1            10000    0.99ns
+benchmark_world_get_1           100000    1.32ns
+benchmark_world_get_5              100    1.82ns
+benchmark_world_get_5             1000    1.74ns
+benchmark_world_get_5            10000    4.54ns
+benchmark_world_get_5           100000    4.84ns
+benchmark_world_new_entity_1       100    5.26ns
+benchmark_world_new_entity_1      1000    7.89ns
+benchmark_world_new_entity_1     10000    1.89ns
+benchmark_world_new_entity_1    100000    1.38ns
+benchmark_world_new_entity_5       100   18.28ns
+benchmark_world_new_entity_5      1000   20.53ns
+benchmark_world_new_entity_5     10000    4.07ns
+benchmark_world_new_entity_5    100000    2.76ns
+benchmark_world_posvel             100    2.50ns
+benchmark_world_posvel            1000    2.76ns
+benchmark_world_posvel           10000    3.95ns
+benchmark_world_posvel          100000    4.87ns
+benchmark_world_set_1              100    4.14ns
+benchmark_world_set_1            10000    4.22ns
+benchmark_world_set_1_iter         100    0.84ns
+benchmark_world_set_1_iter       10000    1.64ns
+benchmark_world_set_5              100   23.08ns
+benchmark_world_set_5            10000   25.91ns
+benchmark_world_set_5_iter         100    4.78ns
+benchmark_world_set_5_iter       10000    9.67ns
+
+Ark results
+
+benchmark_query_create                      1000    7.50ns,       0 allocs,       0B
+benchmark_query_posvel_cold                  100    3.94ns,       0 allocs,       0B
+benchmark_query_posvel_cold                 1000    1.18ns,       0 allocs,       0B
+benchmark_query_posvel_cold                10000    1.62ns,       0 allocs,       0B
+benchmark_query_posvel_cold               100000    3.43ns,       0 allocs,       0B
+benchmark_query_posvel_cold              1000000    3.21ns,       0 allocs,       0B
+benchmark_query_posvel_fields                100    0.83ns,       0 allocs,       0B
+benchmark_query_posvel_fields               1000    0.67ns,       0 allocs,       0B
+benchmark_query_posvel_fields              10000    1.09ns,       0 allocs,       0B
+benchmark_query_posvel_fields             100000    2.59ns,       0 allocs,       0B
+benchmark_query_posvel_fields            1000000    3.51ns,       0 allocs,       0B
+benchmark_query_posvel_fields_broadcast      100    1.34ns,       0 allocs,       0B
+benchmark_query_posvel_fields_broadcast     1000    1.27ns,       0 allocs,       0B
+benchmark_query_posvel_fields_broadcast    10000    2.14ns,       0 allocs,       0B
+benchmark_query_posvel_fields_broadcast   100000    4.94ns,       0 allocs,       0B
+benchmark_query_posvel_fields_broadcast  1000000    7.20ns,       0 allocs,       0B
+benchmark_query_posvel_hot                   100    0.83ns,       0 allocs,       0B
+benchmark_query_posvel_hot                  1000    0.67ns,       0 allocs,       0B
+benchmark_query_posvel_hot                 10000    1.03ns,       0 allocs,       0B
+benchmark_query_posvel_hot                100000    2.19ns,       0 allocs,       0B
+benchmark_query_posvel_hot               1000000    3.60ns,       0 allocs,       0B
+benchmark_query_posvel_soa                   100    1.30ns,       0 allocs,       0B
+benchmark_query_posvel_soa                  1000    1.05ns,       0 allocs,       0B
+benchmark_query_posvel_soa                 10000    1.30ns,       0 allocs,       0B
+benchmark_query_posvel_soa                100000    2.32ns,       0 allocs,       0B
+benchmark_query_posvel_soa               1000000    3.70ns,       0 allocs,       0B
+benchmark_query_posvel_soa_unpack            100    0.99ns,       0 allocs,       0B
+benchmark_query_posvel_soa_unpack           1000    0.64ns,       0 allocs,       0B
+benchmark_query_posvel_soa_unpack          10000    0.92ns,       0 allocs,       0B
+benchmark_query_posvel_soa_unpack         100000    1.99ns,       0 allocs,       0B
+benchmark_query_posvel_soa_unpack        1000000    3.32ns,       0 allocs,       0B
+benchmark_world_add_remove_1                 100  161.84ns,       0 allocs,       0B
+benchmark_world_add_remove_1               10000  160.34ns,       0 allocs,       0B
+benchmark_world_add_remove_1_large           100  161.84ns,       0 allocs,       0B
+benchmark_world_add_remove_1_large         10000  170.80ns,       0 allocs,       0B
+benchmark_world_add_remove_1_soa             100  197.37ns,       0 allocs,       0B
+benchmark_world_add_remove_1_soa           10000  195.47ns,       0 allocs,       0B
+benchmark_world_add_remove_8                 100  296.06ns,       0 allocs,       0B
+benchmark_world_add_remove_8               10000  298.21ns,       0 allocs,       0B
+benchmark_world_add_remove_8_large           100  311.84ns,       0 allocs,       0B
+benchmark_world_add_remove_8_large         10000  318.38ns,       0 allocs,       0B
+benchmark_world_add_remove_8_soa             100  351.32ns,       0 allocs,       0B
+benchmark_world_add_remove_8_soa           10000  349.90ns,       0 allocs,       0B
+benchmark_world_copy_entity_5                100  130.26ns,       0 allocs,       0B
+benchmark_world_copy_entity_5              10000  130.97ns,       0 allocs,       0B
+benchmark_world_get_1                        100    1.62ns,       0 allocs,       0B
+benchmark_world_get_1                      10000    1.57ns,       0 allocs,       0B
+benchmark_world_get_1_soa                    100    2.72ns,       0 allocs,       0B
+benchmark_world_get_1_soa                  10000    2.84ns,       0 allocs,       0B
+benchmark_world_get_5                        100    4.62ns,       0 allocs,       0B
+benchmark_world_get_5                      10000    4.77ns,       0 allocs,       0B
+benchmark_world_new_entities_1               100    7.90ns,       2 allocs,     128B
+benchmark_world_new_entities_1             10000    6.08ns,       2 allocs,     128B
+benchmark_world_new_entities_1_def           100    7.89ns,       0 allocs,       0B
+benchmark_world_new_entities_1_def         10000    5.88ns,       0 allocs,       0B
+benchmark_world_new_entities_5               100   11.85ns,       2 allocs,     128B
+benchmark_world_new_entities_5             10000   10.74ns,       2 allocs,     128B
+benchmark_world_new_entities_5_def           100   11.84ns,       0 allocs,       0B
+benchmark_world_new_entities_5_def         10000    9.59ns,       0 allocs,       0B
+benchmark_world_new_entity_1                 100   47.37ns,       0 allocs,       0B
+benchmark_world_new_entity_1               10000   49.15ns,       0 allocs,       0B
+benchmark_world_new_entity_1_soa             100   59.21ns,       0 allocs,       0B
+benchmark_world_new_entity_1_soa           10000   59.17ns,       0 allocs,       0B
+benchmark_world_new_entity_5                 100  146.05ns,       0 allocs,       0B
+benchmark_world_new_entity_5               10000  145.94ns,       0 allocs,       0B
+benchmark_world_new_entity_5_soa             100  256.58ns,       0 allocs,       0B
+benchmark_world_new_entity_5_soa           10000  257.84ns,       0 allocs,       0B
+benchmark_world_posvel                       100    6.83ns,       0 allocs,       0B
+benchmark_world_posvel                      1000    6.88ns,       0 allocs,       0B
+benchmark_world_posvel                     10000    6.91ns,       0 allocs,       0B
+benchmark_world_posvel                    100000    8.07ns,       0 allocs,       0B
+benchmark_world_resource                       1   22.73ns,       0 allocs,       0B
+benchmark_world_set_1                        100    5.64ns,       0 allocs,       0B
+benchmark_world_set_1                      10000    5.52ns,       0 allocs,       0B
+benchmark_world_set_1_soa                    100    4.07ns,       0 allocs,       0B
+benchmark_world_set_1_soa                  10000    4.03ns,       0 allocs,       0B
+benchmark_world_set_5                        100   24.55ns,       0 allocs,       0B
+benchmark_world_set_5                      10000   20.90ns,       0 allocs,       0B

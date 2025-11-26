@@ -3,12 +3,13 @@
 ############################################################################################################################################################################
 
 struct SoALayout{T} <: AbstractArrayLayout{T}
-	data::StructVector{T}
+	data::T
 
 	## Constructors
 
-	SoALayout{T}(::UndefInitializer, n) where T = new{T}(StructVector{T}(undef, n))
+	SoALayout{T}(::UndefInitializer, n) where T = (data=StructVector{T}(undef, n); new{typeof(data)}(data))
 	SoALayout{T}() where T = SoALayout{T}(undef, 0)
+	SoALayout{T}(::UndefInitializer, n) where T<:StructVector = (new{T}(StructVector{T.parameters[1]}(undef, n)))
 end
 
 struct ViewLayout{T} <: AbstractArrayLayout{T}
@@ -25,8 +26,9 @@ struct EntityIndexing <: FragmentIndexingStyle end
 Base.getproperty(v::ViewLayout, s::Symbol) = getproperty(getfield(v, :data), s)
 Base.setproperty!(v::ViewLayout, val, s) = setproperty!(getfield(v, :data), val, s)
 
-@generated function Base.setindex!(s::SoALayout{T}, v, i) where T
+@generated function Base.setindex!(s::SoALayout{L}, v, i) where L
 	expr = Expr(:block)
+	T = L.parameters[1]
 	fields, types = fieldnames(T), fieldtypes(T)
 	push!(expr.args, :(data = FragmentArrays._getdata(s)))
 	for j in eachindex(fields)
@@ -75,3 +77,6 @@ function defsetindex!(f::FragmentVector, v, i)
 
     return @inbounds blk[i-off] = v
 end
+
+to_layout(::Type{ViewLayout}, T) = T
+to_layout(::Type{SoALayout}, T) = typeof(StructVector{T}(undef, 0))

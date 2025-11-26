@@ -1,9 +1,11 @@
 module ReactiveECS
 
+include(joinpath("ECSInterface.jl", "src", "ECSInterface.jl"))
+
 using Reexport
 using StructArrays
 using FieldViews
-@reexport using ECSInterface
+@reexport using .ECSInterface
 
 include(joinpath("NodeTree.jl", "src", "NodeTree.jl"))
 include(joinpath("Notifyers.jl", "src", "Notifyers.jl"))

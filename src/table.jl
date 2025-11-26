@@ -12,7 +12,7 @@ export swap!, swap_remove!, get_entity, get_range, getdata, offset
 
 const DEFAULT_PARTITION_SIZE = 2^12
 const COPYSIZE = 2^12
-const DEFAULT_LAYOUT = ViewLayout
+const DEFAULT_LAYOUT = SoALayout
 
 """
     mutable struct EntityRange
@@ -52,15 +52,15 @@ This represent a column of the table. A column is in a fact a Struct of array wh
 index is an entity.
 `id` is the position of the bit representing this column.
 """
-mutable struct TableColumn{T}
+mutable struct TableColumn{T, L}
 	const id::Int
-    const data::FragmentVector{T, DEFAULT_LAYOUT{T}, EntityIndexing}
+    const data::FragmentVector{L, DEFAULT_LAYOUT{L}, EntityIndexing}
     locks::HierarchicalLock{T}
     size::Int
 
     ## Constructor
-    TableColumn(id::Int, s::FragmentVector{T, <:DEFAULT_LAYOUT, EntityIndexing}, size=0) where {T} = new{T}(id,s, HierarchicalLock{T}(), size)
-    TableColumn{T}(id::Int,::UndefInitializer, n::Integer) where T = TableColumn(id,FragmentVector{T, DEFAULT_LAYOUT, EntityIndexing}(undef, n), n)
+    TableColumn{T}(id::Int, s::FragmentVector{L, <:DEFAULT_LAYOUT, EntityIndexing}, size=0) where {T,L} = new{T, L}(id,s, HierarchicalLock{T}(), size)
+    TableColumn{T}(id::Int,::UndefInitializer, n::Integer) where T = TableColumn{T}(id,FragmentVector{to_layout(DEFAULT_LAYOUT,T), DEFAULT_LAYOUT, EntityIndexing}(undef, n), n)
 end
 
 """
